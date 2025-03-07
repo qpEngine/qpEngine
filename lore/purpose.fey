@@ -1,0 +1,86 @@
+
+
+
+
+
+
+    I. Introduction
+    It took me a long while to come around to the idea of building my own game/software engine. I originally started
+    going to university for computer science because I wanted to make games. I didn't actually even want to write code;
+    all I wanted to do was design games. It wasn't even until halfway through second year before I finally realized that it didn't
+    matter what problem I was solving, I loved to write programs, and I loved the theory behind it.
+
+    Starting out, I used the Unreal Engine, for about a year, doing courses on Udemy. A great way to learn in my opinion, but
+    at the time I truly wasn't ready for everything that engine had to offer.
+    Realizing that, I jumped over to unity, and kept at it with more courses. I learned a lot more, and faster. By then I was
+    already a year or so into my degree and getting more confident as a programmer.
+
+    Ultimately, I realized Unity was a dead end for me, because I didn't have access to the source code. I would never be able to
+    make changes, or even understand how it worked. That's when I discovered Godot.
+
+    If you haven't already used godot, and you're new to game development, I highly recommend it. It's a great engine, and it's
+    completely open source. I finally got my feet wet with contributing to open source through Godot, and because of that I
+    became even more confident in my abilities as a programmer and a game developer.
+
+    However, I'm a really particular person. I knew that I wanted to get deeper into the engine, but I was held back by the fact that
+    it was so monolithic at that point (even being relatively small compared to Unity or Unreal). And that it was written in CPP, a
+    language that I was comfortable with, but didn't really want to work with on a daily basis.
+
+    I wanted the speed and power of CPP, but the flexibility and features of a more modern language like Rust. That turned out to be a
+    dead end as well, because for the life of me I could not wrap my head around the borrow checker, or lifetimes. I was stuck.
+
+    It was a while later, I heard about two new languages. Odin and Zig. Were they the answer to my problems? I spent some time looking
+    at their documentation, and I was impressed with both of them. To start learning, I picked zig first, for no real reason, other than
+    it promised to be a better C, which I was already familiar with. I liked that I could learn to compile old libraries with it, and include
+    them in my projects with minimal effort.
+
+    The first project I did was working through the book 'Crafting Interpreters' By Robert Nystrom. If you want a great education in
+    what goes on inside an interpreter, I highly recommend it. The real challenge of the project though, was that I was writing it in Zig, and
+    the half of the book I was reading is written in C. So I had to translate the code as I went along, making many mistakes and pulling at
+    my hair trying to understand pointers and memory in a way I had never before. It didn't help I was doing it for a class project, and was
+    on a time crunch.
+
+    By the time I was halfway through my interpreter, I was hooked. I loved Zig deeper than I had ever thought I could love a language.
+    That is what finally inspired me to build my own engine. I knew I wanted to work with it every day, and while I could use one of the
+    already existing engines or libraries written in zig, such as Zig-Gamedev or Mach, I knew that this was my chance to go right down
+    to the metal and learn everything I could about game development.
+
+    The reason I chose to go to university to begin with, instead of learning to program on my own, was because I wanted to learn the theory
+    behind programming. I wanted to understand why a computer did x when I told it to do x. Now I was ready for graphics, and audio, and
+    networking, and physics. I wanted to understand how it all worked.
+
+
+    II. What about the name?
+    The first thing you might think of when you come upon the qpEngine is 'what does qp stand for?'.
+
+    When I set out to think of a name for the engine I brought with me a lifetime quantity of partialities, perspectives, or preconceptions
+    that all demanded to be satisfied. I wanted a name that was short, easy to remember, and easy to type. I wanted a name that was also
+    unique and not already taken.
+
+    Ultimately, I settled on the idea that, just like myself and the fact that over my life I have given myself, and been given by others
+    many different names, each related to something particular about that time of my life, so to cou this engine have many different names.
+
+    Just a few of them, in no particular order, are:
+
+    Quantum Pixel. A name that evokes the idea of advanced knowledge and technology, all focused into each individual pixel.
+
+    Quality Project. Admittedly, I thought this was funny in that it sounds overly generic and poorly descriptive.
+
+    Qaptors Pilgrimage. This is generally what I call the journey of my life, which the engine is surely a part of.
+
+
+    However, there is one name that I have truly, personally settled on: Qestora Perenio.
+
+    In no true language except my own this name means 'The Eternal Quest'. As in, I do not think this engine will ever truly be finished.
+    Yet it is a challange that I hope to learn a great deal from, and share that journey with others along the way.
+
+
+    The real question, though, is what does 'qp' stand for to you? I made this engine for me, but once you've found it, and decide to use it,
+    or even someday contribute back to it, it becomes for you as well. I hope that you will give it a good name, and that you will be able  to
+    share that name with me someday.
+
+
+
+
+
+
