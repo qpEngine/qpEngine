@@ -1,0 +1,21 @@
+.{
+    .fingerprint = 0xb7762054b3a297cc,
+    .name = .qpEngine,
+
+    .version = "0.0.0",
+
+    .minimum_zig_version = "0.14.0",
+
+    .dependencies = .{
+        .pcre2 = .{
+            .url = "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.45/pcre2-10.45.tar.gz",
+            .hash = "N-V-__8AABrcxQBR42u8kDuZTFX3-p0j3JkahUL148NGzGjq",
+        },
+    },
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
