@@ -36,24 +36,24 @@ Comment:
  building them into the Godot binary, you may remove the corresponding
  license details from this file.
 
-Upstream-Name: qp Engine <working title>
+Upstream-Name: qpEngine
 Upstream-Contact: Rocco Ruscitti <contact@roccoruscitti.ca>
-Source: https://github.com/<org>/<repo>
+Source: https://github.com/qpEngine/qpEngine
 
 
 Files: *
-Comment: qp Engine
+Comment: qpEngine
 Copyright: 2025-present, Rocco Ruscitti
- <addl-range>, <other-authors>, <other-authors>
+ <addl-date-range>, <other-authors>, <other-authors>
 License: Expat <what does this mean?>
 
 Files: icon.png
  icon.svg
  logo.png
  logo.svg
-Comment: qp Engine logo
-Copyright: 202-, Rocco Ruscitti
-License: CC-BY-4.0
+Comment: qpEngine logo
+Copyright: 202x-xxxx, Rocco Ruscitti
+License: CC-BY-4.0<?>
 
 Files: thirdparty/pcre2/*
 Comment: PCRE2
