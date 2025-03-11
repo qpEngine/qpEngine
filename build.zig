@@ -20,14 +20,14 @@ pub fn build(b: *std.Build) void {
     });
     qp_lib.linkLibrary(pcre2_8_dep.artifact("pcre2-8"));
 
-    const lib = b.addLibrary(.{
-        .linkage = .static,
-        .kind = .lib,
-        .name = "qpEngine",
-        .root_module = qp_lib,
-    });
-    b.installArtifact(lib);
-
+    // const lib = b.addLibrary(.{
+    // .linkage = .static,
+    // .kind = .lib,
+    // .name = "qpEngine",
+    // .root_module = qp_lib,
+    // });
+    // b.installArtifact(lib);
+    //
     // qpEngine Editor Executable
     if (build_editor) {
         const exe_mod = b.createModule(.{

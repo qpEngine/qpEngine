@@ -2,7 +2,7 @@
     .fingerprint = 0xb7762054b3a297cc,
     .name = .qpEngine,
 
-    .version = "0.0.0",
+    .version = "0.0.1",
 
     .minimum_zig_version = "0.14.0",
 
@@ -17,5 +17,6 @@
         "build.zig",
         "build.zig.zon",
         "src",
+        "lib",
     },
 }
