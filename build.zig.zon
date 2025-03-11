@@ -8,8 +8,8 @@
 
     .dependencies = .{
         .pcre2 = .{
-            .url = "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.45/pcre2-10.45.tar.gz",
-            .hash = "N-V-__8AABrcxQBR42u8kDuZTFX3-p0j3JkahUL148NGzGjq",
+            .url = "https://github.com/qaptoR-support/pcre2/archive/refs/tags/zig0.14.tar.gz",
+            .hash = "N-V-__8AAN0G3wA6horCZYad-eyYofHQ4Q9D7m9nSWiCqbXb",
         },
     },
 

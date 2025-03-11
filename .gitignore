@@ -1,6 +1,6 @@
 
 misc/
-*.copy
+*.copy.*
 
 .zig-cache/
 zig-out/

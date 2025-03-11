@@ -22,7 +22,7 @@
 //
 //    I. Acknowledgement
 //    This file is based on the `RegEx` and `RegExMatch` classes from Godot Engine.
-//    See legal/attribution/godot_engine.fey for full attribution.
+//    See /legal/attribution/godot_engine.fey for full attribution.
 //
 //
 //
