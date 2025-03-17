@@ -25,5 +25,8 @@
 //
 //
 
-pub const util = @import("util.zig");
-pub const math = @import("math.zig");
+pub const Vec = @import("math/vec.zig").Vec;
+
+pub const Vec2 = @import("math/vec.zig").Vec2;
+pub const Vec3 = @import("math/vec.zig").Vec3;
+pub const Vec4 = @import("math/vec.zig").Vec4;

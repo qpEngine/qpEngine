@@ -26,38 +26,95 @@
 //
 
 pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(gpa.deinit() != .leak);
-    const allocator = gpa.allocator();
+    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    // defer std.debug.assert(gpa.deinit() != .leak);
+    // const allocator = gpa.allocator();
 
-    var regex = try Regex.from("a(b|c)d", true, allocator);
-    defer regex.deinit();
+    // const v2 = Vec(f32, 3).init([3]f32{ 4.0, 5.0, 6.0 });
+    // const outer = v1.outer1d(v2);
 
-    std.debug.print("regex pattern: {s}\n", .{regex.getPattern().?});
+    // {
+    //     const start = std.time.milliTimestamp();
+    //     var sum: f64 = 0.0;
+    //
+    //     const v1 = Vec3(f32).init(.{ 1.0, 2.0, 3.0 });
+    //     for (0..1_000_000_000) |i| {
+    //         const v2 = Vec3(f32).from(Vec(f32, 3).initS(@floatFromInt(i % 1092)));
+    //         const v3 = v1.crossExp(v2);
+    //         if (i % 2 == 0) {
+    //             sum += @reduce(.Add, @as(@Vector(3, f32), v3.as().data));
+    //         } else {
+    //             const vm: @Vector(3, f32) = @splat(-1.0);
+    //             const v4 = @as(@Vector(3, f32), v3.as().data) * vm;
+    //             sum += @reduce(.Add, v4);
+    //         }
+    //     }
+    //
+    //     const end = std.time.milliTimestamp();
+    //     std.debug.print("crossExp Time: {}, sum {}\n", .{ end - start, sum });
+    // }
+    {
+        const start = std.time.milliTimestamp();
+        var sum: f64 = 0.0;
 
-    const subject = "abd acd";
-    var matches: std.ArrayList(RegexMatch) = regex.searchAll(subject, 0, -1);
-    defer regex.deinitMatchList(&matches);
+        const v1 = Vec3(f32).init(.{ 1.0, 2.0, 3.0 });
+        for (0..1_000_000_000) |i| {
+            const v2 = Vec3(f32).from(Vec(f32, 3).initS(@floatFromInt(i % 1092)));
+            const v3 = v1.crossComp(v2);
+            if (i % 2 == 0) {
+                sum += @reduce(.Add, @as(@Vector(3, f32), v3.as().data));
+            } else {
+                const vm: @Vector(3, f32) = @splat(-1.0);
+                const v4 = @as(@Vector(3, f32), v3.as().data) * vm;
+                sum += @reduce(.Add, v4);
+            }
+        }
 
-    try tests.expectEqual(2, matches.items.len);
+        const end = std.time.milliTimestamp();
+        std.debug.print("crossComp Time: {}, sum {}\n", .{ end - start, sum });
+    }
+    {
+        const start = std.time.milliTimestamp();
+        var sum: f64 = 0.0;
 
-    try tests.expect(std.mem.eql(u8, "abd", matches.items[0].getStringAt(0)));
-    try tests.expectEqual(0, matches.items[0].getStartAt(0));
-    try tests.expectEqual(3, matches.items[0].getEndAt(0));
+        var v1 = Vec3(f32).init(.{ 1.0, 2.0, 3.0 });
+        for (0..1_000_000_000) |i| {
+            var v2 = Vec3(f32).from(Vec(f32, 3).initS(@floatFromInt(i % 1092)));
+            const v3 = v1.crossSimdSmall(&v2);
+            if (i % 2 == 0) {
+                sum += @reduce(.Add, @as(@Vector(3, f32), v3.as().data));
+            } else {
+                const vm: @Vector(3, f32) = @splat(-1.0);
+                const v4 = @as(@Vector(3, f32), v3.as().data) * vm;
+                sum += @reduce(.Add, v4);
+            }
+        }
 
-    try tests.expect(std.mem.eql(u8, "b", matches.items[0].getStringAt(1)));
-    try tests.expectEqual(1, matches.items[0].getStartAt(1));
-    try tests.expectEqual(2, matches.items[0].getEndAt(1));
+        const end = std.time.milliTimestamp();
+        std.debug.print("SimdSmall Time: {}, sum {}\n", .{ end - start, sum });
+    }
+    // {
+    //     const start = std.time.milliTimestamp();
+    //     var sum: f64 = 0.0;
+    //
+    //     const v1 = Vec3(f32).init(.{ 1.0, 2.0, 3.0 });
+    //     for (0..1_000_000_000) |i| {
+    //         const v2 = Vec3(f32).from(Vec(f32, 3).initS(@floatFromInt(i % 1092)));
+    //         const v3 = v1.crossSimdLarge(v2);
+    //         if (i % 2 == 0) {
+    //             sum += @reduce(.Add, @as(@Vector(3, f32), v3.as().data));
+    //         } else {
+    //             const vm: @Vector(3, f32) = @splat(-1.0);
+    //             const v4 = @as(@Vector(3, f32), v3.as().data) * vm;
+    //             sum += @reduce(.Add, v4);
+    //         }
+    //     }
+    //
+    //     const end = std.time.milliTimestamp();
+    //     std.debug.print("SimdLarge Time: {}, sum {}\n", .{ end - start, sum });
+    // }
 
-    try tests.expect(std.mem.eql(u8, "acd", matches.items[1].getStringAt(0)));
-    try tests.expectEqual(4, matches.items[1].getStartAt(0));
-    try tests.expectEqual(7, matches.items[1].getEndAt(0));
-
-    try tests.expect(std.mem.eql(u8, "c", matches.items[1].getStringAt(1)));
-    try tests.expectEqual(5, matches.items[1].getStartAt(1));
-    try tests.expectEqual(6, matches.items[1].getEndAt(1));
-
-    std.debug.print("Hello, qpEngine!\n", .{});
+    std.debug.print("qpEngine: \n", .{});
 }
 
 const std = @import("std");
@@ -67,3 +124,6 @@ const Allocator = std.mem.Allocator;
 const Regex = qp.util.Regex;
 const RegexMatch = qp.util.RegexMatch;
 const tests = std.testing;
+
+const Vec = qp.math.Vec;
+const Vec3 = qp.math.Vec3;
