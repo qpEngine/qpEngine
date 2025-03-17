@@ -20,15 +20,7 @@ pub fn build(b: *std.Build) void {
     });
     qp_lib.linkLibrary(pcre2_8_dep.artifact("pcre2-8"));
 
-    // const lib = b.addLibrary(.{
-    // .linkage = .static,
-    // .kind = .lib,
-    // .name = "qpEngine",
-    // .root_module = qp_lib,
-    // });
-    // b.installArtifact(lib);
-    //
-    // qpEngine Editor Executable
+    // apEngine Editor
     if (build_editor) {
         const exe_mod = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
@@ -61,8 +53,15 @@ pub fn build(b: *std.Build) void {
         // .root_module = regex_mod,
     });
     regex_lib_unit_test.linkLibrary(pcre2_8_dep.artifact("pcre2-8"));
-    const run_lib_unit_tests = b.addRunArtifact(regex_lib_unit_test);
+    const run_regex_unit_tests = b.addRunArtifact(regex_lib_unit_test);
+
+    const vec_lib_unit_test = b.addTest(.{
+        .root_source_file = b.path("lib/qp/math/vec.zig"),
+        // .root_module = regex_mod,
+    });
+    const run_vec_unit_tests = b.addRunArtifact(vec_lib_unit_test);
 
     const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&run_lib_unit_tests.step);
+    test_step.dependOn(&run_regex_unit_tests.step);
+    test_step.dependOn(&run_vec_unit_tests.step);
 }
