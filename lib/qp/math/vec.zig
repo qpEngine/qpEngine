@@ -1036,19 +1036,40 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
             const len = self.length();
             if (len == 0) return null;
             return switch (@typeInfo(T)) {
-                .float => self.divS(len),
-                .int => Vec(f32, N).fromA(T, self.data).divS(len),
+                .float => self.divS(len) catch unreachable,
+                .int => Vec(f32, N).fromA(T, self.data).divS(len) catch unreachable,
                 else => @compileError("Vec element type must be numeric"),
             };
         }
 
-        /// Calculate direction vector from self to other
-        pub inline fn dirToV(self: Self, other: Self) Self {
-            return other.subV(self).normalized() orelse Self.initS(0);
+        /// Calculate direction vector from self to other vector
+        pub inline fn dirToV(self: Self, other: Self) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
+            return other.subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
-        pub inline fn dirToFromV(self: Self, comptime I: type, other: Vec(I, N)) Self {
-            return Self.initA(other.data).subV(self).normalized() orelse Self.initS(0);
+        /// Calculate direction vector from self to other vector of different type
+        pub inline fn dirToFromV(self: Self, comptime I: type, other: Vec(I, N)) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
+            return Self.fromA(I, other.data).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+        }
+
+        /// Calculate direction vector from self to array
+        pub inline fn dirToA(self: Self, array: [N]T) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
+            return Vec(T, N).initA(array).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+        }
+
+        /// Calculate direction vector from self to array of different type
+        pub inline fn dirToFromA(self: Self, comptime I: type, array: [N]I) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
+            return Self.fromA(I, array).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+        }
+
+        /// Calculate direction vector from self to scalar
+        pub inline fn dirToS(self: Self, scalar: T) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
+            return Self.initS(scalar).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+        }
+
+        /// Calculate direction vector from self to scalar of different type
+        pub inline fn dirToFromS(self: Self, comptime I: type, scalar: I) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
+            return Self.fromS(I, scalar).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate distance between two vectors
@@ -2344,17 +2365,69 @@ test "Length" {
 //     try testing.expectEqual([3]f32{ 1.0, 0.5, 0.33333334 }, v5.data);
 //     try testing.expectEqual([3]f32{ -1.0, -2.0, -3.0 }, v6.data);
 // }
-//
-// test "Direction" {
-//     const v1 = Vec(f32, 3).init(.{ 1.0, 2.0, 3.0 });
-//     const v2 = Vec(f32, 3).init(.{ 4.0, 5.0, 6.0 });
-//     const dir = v1.dirTo(v2);
-//     try testing.expectEqual([3]f32{ 0.57735026, 0.57735026, 0.57735026 }, dir.data);
-//
-//     const dir2 = v2.dirTo(v2);
-//     try testing.expectEqual([3]f32{ 0.0, 0.0, 0.0 }, dir2.data);
-// }
-//
+
+test "Direction" {
+    // Floating point Vector
+    // standard direction of same type and size
+    const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
+    const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
+    const dir1 = v1.dirToV(v2);
+    const dir2 = v1.dirToA(.{ 4.0, 5.0, 6.0 });
+    const dir3 = v1.dirToS(4.0);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir1.data);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir2.data);
+    try testing.expectEqual([3]f32{ 8.017837e-1, 5.345225e-1, 2.6726124e-1 }, dir3.data);
+
+    // direction of same type with different size
+    const v3 = Vec(f64, 3).initA(.{ 4.0, 5.0, 6.0 });
+    const a1 = [3]f64{ 4.0, 5.0, 6.0 };
+    const s1: f64 = 4.0;
+    const dir4 = v1.dirToFromV(f64, v3);
+    const dir5 = v1.dirToFromA(f64, a1);
+    const dir6 = v1.dirToFromS(f64, s1);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir4.data);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir5.data);
+    try testing.expectEqual([3]f32{ 8.017837e-1, 5.345225e-1, 2.6726124e-1 }, dir6.data);
+
+    // Signed Integral Vector
+    // standard direction of same type and size
+    const v4 = Vec(i32, 3).initA(.{ 1, 2, 3 });
+    const v5 = Vec(i32, 3).initA(.{ 4, 5, 6 });
+    const dir7 = v4.dirToV(v5);
+    const dir8 = v4.dirToA(.{ 4, 5, 6 });
+    const dir9 = v4.dirToS(4);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir7.data);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir8.data);
+    try testing.expectEqual([3]f32{ 8.017837e-1, 5.345225e-1, 2.6726124e-1 }, dir9.data);
+
+    // direction of same type with different size
+    const v6 = Vec(i64, 3).initA(.{ 4, 5, 6 });
+    const a2 = [3]i64{ 4, 5, 6 };
+    const s2: i64 = 4;
+    const dir10 = v4.dirToFromV(i64, v6);
+    const dir11 = v4.dirToFromA(i64, a2);
+    const dir12 = v4.dirToFromS(i64, s2);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir10.data);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir11.data);
+    try testing.expectEqual([3]f32{ 8.017837e-1, 5.345225e-1, 2.6726124e-1 }, dir12.data);
+
+    // Both Vector types
+    // direction of different type and size
+    const dir13 = v1.dirToFromV(i64, v6);
+    const dir14 = v1.dirToFromA(i64, a2);
+    const dir15 = v1.dirToFromS(i64, s2);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir13.data);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir14.data);
+    try testing.expectEqual([3]f32{ 8.017837e-1, 5.345225e-1, 2.6726124e-1 }, dir15.data);
+
+    const dir16 = v4.dirToFromV(f64, v3);
+    const dir17 = v4.dirToFromA(f64, a1);
+    const dir18 = v4.dirToFromS(f64, s1);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir16.data);
+    try testing.expectEqual([3]f32{ 5.773503e-1, 5.773503e-1, 5.773503e-1 }, dir17.data);
+    try testing.expectEqual([3]f32{ 8.017837e-1, 5.345225e-1, 2.6726124e-1 }, dir18.data);
+}
+
 // test "Distance" {
 //     const v1 = Vec(f32, 3).init(.{ 1.0, 2.0, 3.0 });
 //     const v2 = Vec(f32, 3).init(.{ 4.0, 5.0, 6.0 });
