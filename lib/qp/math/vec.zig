@@ -115,6 +115,79 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
             }
         }
 
+        inline fn scalarFromAny(comptime I: type, value: I) T {
+            return switch (@typeInfo(T)) {
+                .int => switch (@typeInfo(I)) {
+                    .int => @intCast(value),
+                    .float => @intFromFloat(value),
+                    else => @compileError("Value type must be numeric"),
+                },
+                .float => switch (@typeInfo(I)) {
+                    .int => @floatFromInt(value),
+                    .float => @floatCast(value),
+                    else => @compileError("Value type must be numeric"),
+                },
+                else => @compileError("Vec element type must be numeric"),
+            };
+        }
+
+        inline fn arrayFromAny(comptime I: type, values: [N]I) [N]T {
+            // if (@typeInfo(I).array.len != N) @compileError("Array length must be equal to vector length");
+            const Y: type = switch (I) {
+                comptime_int, comptime_float => T,
+                else => I,
+            };
+            const a: @Vector(N, Y) = @as(@Vector(N, Y), values);
+
+            return switch (@typeInfo(T)) {
+                .int => switch (@typeInfo(Y)) {
+                    .int => @as(@Vector(N, T), @intCast(a)),
+                    .float => @as(@Vector(N, T), @intFromFloat(a)),
+                    else => @compileError("Array element type must be numeric"),
+                },
+                .float => switch (@typeInfo(Y)) {
+                    .int => @as(@Vector(N, T), @floatFromInt(a)),
+                    .float => @as(@Vector(N, T), @floatCast(a)),
+                    else => @compileError("Array element type must be numeric"),
+                },
+                else => @compileError("Vec element type must be numeric"),
+            };
+        }
+
+        inline fn vectorFromAny(value: anytype) @Vector(N, T) {
+            return switch (@typeInfo(@TypeOf(value))) {
+                .comptime_int, .comptime_float => @splat(value),
+                .int, .float => switch (@TypeOf(value)) {
+                    T => @splat(value),
+                    else => @splat(scalarFromAny(@TypeOf(value), value)),
+                },
+                .array => |a| switch (@TypeOf(value)) {
+                    [N]T => value,
+                    else => arrayFromAny(a.child, value),
+                },
+                .pointer => |p| switch (@TypeOf(value)) {
+                    []T => ptr: {
+                        if (value.len != N) @compileError("Pointer length must be equal to vector length");
+                        break :ptr value.*;
+                    },
+                    else => arrayFromAny(@typeInfo(p.child).array.child, value.*),
+                },
+                .@"struct" => |s| switch (@TypeOf(value)) {
+                    Vec(T, N) => value.data,
+                    else => if (s.is_tuple) arrayFromAny(s.fields[0].type, value) else arrayFromAny(@typeInfo(s.fields[0].type).array.child, value.data),
+                    // TODO: Add support for other structs
+                    // else => {
+                    //     @compileLog("Type: {any}\n", .{@TypeOf(value)});
+                    //     @compileError("Unsupported type");
+                    // },
+                },
+                else => {
+                    @compileLog("Type: {any}\n", .{@TypeOf(value)});
+                    @compileError("Unsupported type");
+                },
+            };
+        }
+
         // (TESTED)
         /// Initialize vector with component at index set to 1, others to 0
         pub inline fn unitP(index: usize) Self {
@@ -144,191 +217,34 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
             return Vec(T, indices.len).initA(@shuffle(T, a, undefined, @abs(mask)));
         }
 
-        //  (TESTED)
-        /// Summation of components using vector
-        pub inline fn addV(self: Self, other: Self) Self {
+        /// Summation of two vectors by components
+        pub inline fn add(self: Self, other: anytype) Self {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return .{ .data = a + b };
         }
 
-        // (TESTED)
-        /// Summation of components using vector of different type
-        pub inline fn addFromV(self: Self, comptime I: type, other: Vec(I, N)) Self {
-            if (I == T) return self.addV(other);
-
+        /// Difference of two vectors by components
+        pub inline fn sub(self: Self, other: anytype) Self {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return .{ .data = a + b };
-        }
-
-        // (TESTED)
-        /// Summation of components using array
-        pub inline fn addA(self: Self, array: [N]T) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return .{ .data = a + b };
-        }
-
-        // (TESTED)
-        /// Summation of components using array of different type
-        pub inline fn addFromA(self: Self, comptime I: type, array: [N]I) Self {
-            if (I == T) return self.addA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return .{ .data = a + b };
-        }
-
-        // (TESTED)
-        /// Summation of components using scalar
-        pub inline fn addS(self: Self, scalar: T) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return .{ .data = a + b };
-        }
-
-        // (TESTED)
-        /// Summation of components using scalar of different type
-        pub inline fn addFromS(self: Self, comptime I: type, scalar: I) Self {
-            if (I == T) return self.addS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return .{ .data = a + b };
-        }
-
-        // (TESTED)
-        /// Difference of components using vector
-        pub inline fn subV(self: Self, other: Self) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return .{ .data = a - b };
         }
 
-        // (TESTED)
-        // Difference of components using vector of different type
-        pub inline fn subFromV(self: Self, comptime I: type, other: Vec(I, N)) Self {
-            if (I == T) return self.addV(other);
-
+        /// Product of two vectors by components
+        pub inline fn mul(self: Self, other: anytype) Self {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return .{ .data = a - b };
-        }
-
-        // (TESTED)
-        /// Difference of components using array
-        pub inline fn subA(self: Self, array: [N]T) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return .{ .data = a - b };
-        }
-
-        // (TESTED)
-        /// Difference of components using array of different type
-        pub inline fn subFromA(self: Self, comptime I: type, array: [N]I) Self {
-            if (I == T) return self.subA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return .{ .data = a - b };
-        }
-
-        // (TESTED)
-        /// Difference of components using scalar
-        pub inline fn subS(self: Self, scalar: T) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return .{ .data = a - b };
-        }
-
-        // (TESTED)
-        /// Difference of components using scalar of different type
-        pub inline fn subFromS(self: Self, comptime I: type, scalar: I) Self {
-            if (I == T) return self.subS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return .{ .data = a - b };
-        }
-
-        // (TESTED)
-        /// Product of components using vector
-        pub inline fn mulV(self: Self, other: Self) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return .{ .data = a * b };
         }
 
-        // (TESTED)
-        /// Product of components using vector of different type
-        pub inline fn mulFromV(self: Self, comptime I: type, other: Vec(I, N)) Self {
-            if (I == T) return self.addV(other);
-
+        /// Quotient of two vectors by components
+        pub inline fn div(self: Self, other: anytype) !Self {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return .{ .data = a * b };
-        }
-
-        // (TESTED)
-        /// Product of components using array
-        pub inline fn mulA(self: Self, array: [N]T) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return .{ .data = a * b };
-        }
-
-        // (TESTED)
-        /// Product of components using array of different type
-        pub inline fn mulFromA(self: Self, comptime I: type, array: [N]I) Self {
-            if (I == T) return self.mulA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return .{ .data = a * b };
-        }
-
-        // (TESTED)
-        /// Product of components usitg scalar
-        pub inline fn mulS(self: Self, scalar: T) Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return .{ .data = a * b };
-        }
-
-        // (TESTED)
-        /// Product of components using scalar of different type
-        pub inline fn mulFromS(self: Self, comptime I: type, scalar: I) Self {
-            if (I == T) return self.mulS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return .{ .data = a * b };
-        }
-
-        // (TESTED)
-        /// Quotient of components using vector
-        pub inline fn divV(self: Self, other: Self) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             const c: @Vector(N, T) = @splat(0);
             const d: @Vector(N, bool) = b == c;
@@ -338,78 +254,10 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
             return .{ .data = a / b };
         }
 
-        // (TESTED)
-        /// Quotient of components using vector of different type
-        pub inline fn divFromV(self: Self, comptime I: type, other: Vec(I, N)) !Self {
-            if (I == T) return self.addV(other);
-
+        /// Modulus of two vectors by components
+        pub inline fn mod(self: Self, other: anytype) !Self {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return VecError.DivideByZero;
-
-            return .{ .data = a / b };
-        }
-
-        // (TESTED)
-        /// Quotient of components using array
-        pub inline fn divA(self: Self, array: [N]T) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return VecError.DivideByZero;
-
-            return .{ .data = a / b };
-        }
-
-        // (TESTED)
-        /// Quotient of components using array of different type
-        pub inline fn divFromA(self: Self, comptime I: type, array: [N]I) !Self {
-            if (I == T) return self.divA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return VecError.DivideByZero;
-
-            return .{ .data = a / b };
-        }
-
-        // (TESTED)
-        /// Quotient of components using scalar
-        pub inline fn divS(self: Self, scalar: T) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-            if (scalar == 0) return Self.initS(0);
-
-            return .{ .data = a / b };
-        }
-
-        // (TESTED)
-        /// Quotient of components using scalar of different type
-        pub inline fn divFromS(self: Self, comptime I: type, scalar: I) !Self {
-            if (I == T) return self.divS(scalar);
-            if (scalar == 0) return Self.initS(0);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return .{ .data = a / b };
-        }
-
-        /// Modulus of components using vector
-        pub inline fn modV(self: Self, other: Self) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             const c: @Vector(N, T) = @splat(0);
             const d: @Vector(N, bool) = b == c;
@@ -419,413 +267,73 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
             return .{ .data = @mod(a, b) };
         }
 
-        /// Modulus of components using vector of different type
-        pub inline fn modFromV(self: Self, comptime I: type, other: Vec(I, N)) !Self {
-            if (I == T) return self.modV(other);
-
+        /// Remainder of two vectors by components
+        pub inline fn rem(self: Self, other: anytype) !Self {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             const c: @Vector(N, T) = @splat(0);
             const d: @Vector(N, bool) = b == c;
             const dbz: bool = @reduce(.Or, d);
             if (dbz) return VecError.DivideByZero;
 
-            return .{ .data = @mod(a, b) };
-        }
-
-        /// Modulus of components using array
-        pub inline fn modA(self: Self, array: [N]T) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return VecError.DivideByZero;
-
-            return .{ .data = @mod(a, b) };
-        }
-
-        /// Modulus of components using array of different type
-        pub inline fn modFromA(self: Self, comptime I: type, array: [N]I) !Self {
-            if (I == T) return self.modA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return VecError.DivideByZero;
-
-            return .{ .data = @mod(a, b) };
-        }
-
-        /// Modulus of components using scalar
-        pub inline fn modS(self: Self, scalar: T) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-            if (scalar == 0) return Self.initS(0);
-
-            return .{ .data = @mod(a, b) };
-        }
-
-        /// Modulus of components using scalar of different type
-        pub inline fn modFromS(self: Self, comptime I: type, scalar: I) !Self {
-            if (I == T) return self.modS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-            if (scalar == 0) return Self.initS(0);
-
-            return .{ .data = @mod(a, b) };
-        }
-
-        /// Remainder of components using vector
-        pub inline fn remV(self: Self, other: Self) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return Self.initS(0);
-
             return .{ .data = @rem(a, b) };
         }
 
-        /// Remainder of components using vector of different type
-        pub inline fn remFromV(self: Self, comptime I: type, other: Vec(I, N)) !Self {
-            if (I == T) return self.remV(other);
-
+        /// Comparison of being less than for two vectors by components
+        pub inline fn lesser(self: Self, other: anytype) @Vector(N, bool) {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return Self.initS(0);
-
-            return .{ .data = @rem(a, b) };
-        }
-
-        /// Remainder of components using array
-        pub inline fn remA(self: Self, array: [N]T) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return Self.initS(0);
-
-            return .{ .data = @rem(a, b) };
-        }
-
-        /// Remainder of components using array of different type
-        pub inline fn remFromA(self: Self, comptime I: type, array: [N]I) !Self {
-            if (I == T) return self.remA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            const c: @Vector(N, T) = @splat(0);
-            const d: @Vector(N, bool) = b == c;
-            const dbz: bool = @reduce(.Or, d);
-            if (dbz) return Self.initS(0);
-
-            return .{ .data = @rem(a, b) };
-        }
-
-        /// Remainder of components using scalar
-        pub inline fn remS(self: Self, scalar: T) !Self {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-            if (scalar == 0) return Self.initS(0);
-
-            return .{ .data = @rem(a, b) };
-        }
-
-        /// Remainder of components using scalar of different type
-        pub inline fn remFromS(self: Self, comptime I: type, scalar: I) !Self {
-            if (I == T) return self.remS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-            if (scalar == 0) return Self.initS(0);
-
-            return .{ .data = @rem(a, b) };
-        }
-
-        /// Boolean result of lesser comparison of components using vector
-        pub inline fn lesserV(self: Self, other: Self) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return a < b;
         }
 
-        /// Boolean result of lesser comparison of components using vector of different type
-        pub inline fn lesserFromV(self: Self, comptime I: type, other: Vec(I, N)) @Vector(N, bool) {
-            if (I == T) return self.addV(other);
-
+        /// Comparison of being less than or equal for two vectors by components
+        pub inline fn lesserEq(self: Self, other: anytype) @Vector(N, bool) {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return a < b;
-        }
-
-        /// Boolean result of lesser comparison of components using array
-        pub inline fn lesserA(self: Self, array: [N]T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return a < b;
-        }
-
-        /// Boolean result of lesser comparison of components using array of different type
-        pub inline fn lesserFromA(self: Self, comptime I: type, array: [N]I) @Vector(N, bool) {
-            if (I == T) return self.lesserA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return a < b;
-        }
-
-        /// Boolean result of lesser comparison of components using scalar
-        pub inline fn lesserS(self: Self, scalar: T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return a < b;
-        }
-
-        /// Boolean result of lesser comparison of components using scalar of different type
-        pub inline fn lesserFromS(self: Self, comptime I: type, scalar: I) @Vector(N, bool) {
-            if (I == T) return self.lesserS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return a < b;
-        }
-
-        /// Boolean result of lesser or equal comparison of components using vector
-        pub inline fn lesserEqV(self: Self, other: Self) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return a <= b;
         }
 
-        /// Boolean result of lesser or equal comparison of components using vector of different type
-        pub inline fn lesserEqFromV(self: Self, comptime I: type, other: Vec(I, N)) @Vector(N, bool) {
-            if (I == T) return self.lesserEqV(other);
-
+        /// Comparison of being greater than for two vectors by components
+        pub inline fn greater(self: Self, other: anytype) @Vector(N, bool) {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return a <= b;
-        }
-
-        /// Boolean result of lesser or equal comparison of components using array
-        pub inline fn lesserEqA(self: Self, array: [N]T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return a <= b;
-        }
-
-        /// Boolean result of lesser or equal comparison of components using array of different type
-        pub inline fn lesserEqFromA(self: Self, comptime I: type, array: [N]I) @Vector(N, bool) {
-            if (I == T) return self.lesserEqA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return a <= b;
-        }
-
-        /// Boolean result of lesser or equal comparison of components using scalar
-        pub inline fn lesserEqS(self: Self, scalar: T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return a <= b;
-        }
-
-        /// Boolean result of lesser or equal comparison of components using scalar of different type
-        pub inline fn lesserEqFromS(self: Self, comptime I: type, scalar: I) @Vector(N, bool) {
-            if (I == T) return self.lesserEqS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return a <= b;
-        }
-
-        /// Boolean result of greater comparison of components using vector
-        pub inline fn greaterV(self: Self, other: Self) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return a > b;
         }
 
-        /// Boolean result of greater comparison of components using vector of different type
-        pub inline fn greaterFromV(self: Self, comptime I: type, other: Vec(I, N)) @Vector(N, bool) {
-            if (I == T) return self.greaterV(other);
-
+        /// Comparison of being greater than or equal for two vectors by components
+        pub inline fn greaterEq(self: Self, other: anytype) @Vector(N, bool) {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return a > b;
-        }
-
-        /// Boolean result of greater comparison of components using array
-        pub inline fn greaterA(self: Self, array: [N]T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return a > b;
-        }
-
-        /// Boolean result of greater comparison of components using array of different type
-        pub inline fn greaterFromA(self: Self, comptime I: type, array: [N]I) @Vector(N, bool) {
-            if (I == T) return self.greaterA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return a > b;
-        }
-
-        /// Boolean result of greater comparison of components using scalar
-        pub inline fn greaterS(self: Self, scalar: T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return a > b;
-        }
-
-        /// Boolean result of greater comparison of components using scalar of different type
-        pub inline fn greaterFromS(self: Self, comptime I: type, scalar: I) @Vector(N, bool) {
-            if (I == T) return self.greaterS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return a > b;
-        }
-
-        /// Boolean result of greater or equal comparison of components using vector
-        pub inline fn greaterEqV(self: Self, other: Self) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return a >= b;
         }
 
-        /// Boolean result of greater or equal comparison of components using vector of different type
-        pub inline fn greaterEqFromV(self: Self, comptime I: type, other: Vec(I, N)) @Vector(N, bool) {
-            if (I == T) return self.greaterEqV(other);
-
+        /// Comparison of equality for two vectors by components
+        pub inline fn equals(self: Self, other: anytype) @Vector(N, bool) {
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
-
-            return a >= b;
-        }
-
-        /// Boolean result of greater or equal comparison of components using array
-        pub inline fn greaterEqA(self: Self, array: [N]T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return a >= b;
-        }
-
-        /// Boolean result of greater or equal comparison of components using array of different type
-        pub inline fn greaterEqFromA(self: Self, comptime I: type, array: [N]I) @Vector(N, bool) {
-            if (I == T) return self.greaterEqA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return a >= b;
-        }
-
-        /// Boolean result of greater or equal comparison of components using scalar
-        pub inline fn greaterEqS(self: Self, scalar: T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return a >= b;
-        }
-
-        /// Boolean result of greater or equal comparison of components using scalar of different type
-        pub inline fn greaterEqFromS(self: Self, comptime I: type, scalar: I) @Vector(N, bool) {
-            if (I == T) return self.greaterEqS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return a >= b;
-        }
-
-        /// Boolean result of equality comparison of components using vector
-        pub inline fn equalV(self: Self, other: Self) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = other.data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
             return a == b;
         }
 
-        /// Boolean result of equality comparison of components using vector of different type
-        pub inline fn equalFromV(self: Self, comptime I: type, other: Vec(I, N)) @Vector(N, bool) {
-            if (I == T) return self.equalV(other);
-
+        pub inline fn approx(self: Self, other: anytype, tolerance: ?T) @Vector(N, bool) {
+            const Y: type = comptime getY: {
+                var y: std.builtin.Type = @typeInfo(T);
+                if (y == .int) y.int.signedness = .unsigned;
+                break :getY if (y == .float) T else @Type(y);
+            };
+            const t: Y = tolerance orelse if (Y == .float) std.math.floatEps(T) else 0;
             const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, other.data).data;
+            const b: @Vector(N, T) = vectorFromAny(other);
 
-            return a == b;
-        }
+            const c: @Vector(N, Y) = @abs(a - b);
+            const d: @Vector(N, Y) = @splat(t);
 
-        /// Boolean result of equality comparison of components using array
-        pub inline fn equalA(self: Self, array: [N]T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = array;
-
-            return a == b;
-        }
-
-        /// Boolean result of equality comparison of components using array of different type
-        pub inline fn equalFromA(self: Self, comptime I: type, array: [N]I) @Vector(N, bool) {
-            if (I == T) return self.equalA(array);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromA(I, array).data;
-
-            return a == b;
-        }
-
-        /// Boolean result of equality comparison of components using scalar
-        pub inline fn equalS(self: Self, scalar: T) @Vector(N, bool) {
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = @splat(scalar);
-
-            return a == b;
-        }
-
-        /// Boolean result of equality comparison of components using scalar of different type
-        pub inline fn equalFromS(self: Self, comptime I: type, scalar: I) @Vector(N, bool) {
-            if (I == T) return self.equalS(scalar);
-
-            const a: @Vector(N, T) = self.data;
-            const b: @Vector(N, T) = Self.fromS(I, scalar).data;
-
-            return a == b;
+            return c <= d;
         }
 
         /// Boolean result of approximate equality comparison of components using vector
@@ -1036,40 +544,40 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
             const len = self.length();
             if (len == 0) return null;
             return switch (@typeInfo(T)) {
-                .float => self.divS(len) catch unreachable,
-                .int => Vec(f32, N).fromA(T, self.data).divS(len) catch unreachable,
+                .float => self.div(len) catch unreachable,
+                .int => Vec(f32, N).fromA(T, self.data).div(len) catch unreachable,
                 else => @compileError("Vec element type must be numeric"),
             };
         }
 
         /// Calculate direction vector from self to other vector
         pub inline fn dirToV(self: Self, other: Self) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
-            return other.subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+            return other.sub(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate direction vector from self to other vector of different type
         pub inline fn dirToFromV(self: Self, comptime I: type, other: Vec(I, N)) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
-            return Self.fromA(I, other.data).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+            return Self.fromA(I, other.data).sub(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate direction vector from self to array
         pub inline fn dirToA(self: Self, array: [N]T) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
-            return Vec(T, N).initA(array).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+            return Vec(T, N).initA(array).sub(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate direction vector from self to array of different type
         pub inline fn dirToFromA(self: Self, comptime I: type, array: [N]I) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
-            return Self.fromA(I, array).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+            return Self.fromA(I, array).sub(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate direction vector from self to scalar
         pub inline fn dirToS(self: Self, scalar: T) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
-            return Self.initS(scalar).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+            return Self.initS(scalar).sub(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate direction vector from self to scalar of different type
         pub inline fn dirToFromS(self: Self, comptime I: type, scalar: I) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
-            return Self.fromS(I, scalar).subV(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
+            return Self.fromS(I, scalar).sub(self).normalized() orelse (if (@typeInfo(T) == (.float)) Self else Vec(f32, N)).initS(0);
         }
 
         /// Calculate distance between two vectors
@@ -1083,14 +591,14 @@ pub fn Vec(comptime T: type, comptime N: u16) type {
 
         /// Calculate squared distance between two vectors
         pub inline fn distTo2(self: Self, other: Self) T {
-            return other.subV(self).length2();
+            return other.sub(self).length2();
         }
 
         /// Linear interpolation between two vectors at time t
         pub inline fn lerp(self: Self, other: Self, t: T) (if (@typeInfo(T) == .float) Self else Vec(f32, N)) {
             return switch (@typeInfo(T)) {
-                .float => self.mulS(1 - t).addV(other.mulS(t)),
-                .int => Vec(f32, N).fromA(T, self.data).mulS(1 - t).addV(Vec(f32, N).fromA(T, other.data).mulS(t)),
+                .float => self.mul(1 - t).add(other.mul(t)),
+                .int => Vec(f32, N).fromA(T, self.data).mul(1 - t).add(Vec(f32, N).fromA(T, other.data).mul(t)),
                 else => @compileError("Vec element type must be numeric"),
             };
         }
@@ -1227,8 +735,16 @@ pub fn Vec2(comptime T: type) type {
             return @as(*baseType, @ptrCast(@constCast(self)));
         }
 
-        pub fn init(data: [2]T) Self {
+        pub fn initV(vec: Self) Self {
+            return .{ .x = vec.x, .y = vec.y };
+        }
+
+        pub fn initA(data: [2]T) Self {
             return .{ .x = data[0], .y = data[1] };
+        }
+
+        pub fn initS(scalar: T) Self {
+            return .{ .x = scalar, .y = scalar };
         }
 
         pub fn from(vec: baseType) Self {
@@ -1265,8 +781,16 @@ pub fn Vec3(comptime T: type) type {
             return @as(*baseType, @ptrCast(@constCast(self)));
         }
 
-        pub fn init(data: [3]T) Self {
+        pub fn initV(vec: Self) Self {
+            return .{ .x = vec.x, .y = vec.y, .z = vec.z };
+        }
+
+        pub fn initA(data: [3]T) Self {
             return .{ .x = data[0], .y = data[1], .z = data[2] };
+        }
+
+        pub fn initS(scalar: T) Self {
+            return .{ .x = scalar, .y = scalar, .z = scalar };
         }
 
         pub fn from(vec: baseType) Self {
@@ -1319,8 +843,16 @@ pub fn Vec4(comptime T: type) type {
             return @as(*baseType, @ptrCast(@constCast(self)));
         }
 
-        pub fn init(data: [4]T) Self {
+        pub fn initV(vec: Self) Self {
+            return .{ .x = vec.x, .y = vec.y, .z = vec.z, .w = vec.w };
+        }
+
+        pub fn initA(data: [4]T) Self {
             return .{ .x = data[0], .y = data[1], .z = data[2], .w = data[3] };
+        }
+
+        pub fn initS(scalar: T) Self {
+            return .{ .x = scalar, .y = scalar, .z = scalar, .w = scalar };
         }
 
         pub fn from(vec: baseType) Self {
@@ -1438,22 +970,22 @@ test "Addition" {
     // standard addition of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v3 = v1.addV(v2);
-    const v4 = v1.addA(.{ 4.0, 5.0, 6.0 });
-    const v5 = v1.addS(1.0);
+    const v3 = v1.add(v2);
+    const v4 = v1.add([3]f32{ 4.0, 5.0, 6.0 });
+    const v5 = v1.add(@as(f32, 1.0));
     try testing.expectEqual([3]f32{ 5.0, 7.0, 9.0 }, v3.data);
     try testing.expectEqual([3]f32{ 5.0, 7.0, 9.0 }, v4.data);
     try testing.expectEqual([3]f32{ 2.0, 3.0, 4.0 }, v5.data);
 
     // addition of same type with different size
     const v6 = Vec(f64, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v7 = v1.addFromV(f64, v6);
+    const v7 = v1.add(v6);
 
     const a1 = [3]f64{ 4.0, 5.0, 6.0 };
-    const v8 = v1.addFromA(f64, a1);
+    const v8 = v1.add(a1);
 
     const s1: f64 = 1.0;
-    const v9 = v1.addFromS(f64, s1);
+    const v9 = v1.add(s1);
     try testing.expectEqual([3]f32{ 5.0, 7.0, 9.0 }, v7.data);
     try testing.expectEqual([3]f32{ 5.0, 7.0, 9.0 }, v8.data);
     try testing.expectEqual([3]f32{ 2.0, 3.0, 4.0 }, v9.data);
@@ -1462,40 +994,43 @@ test "Addition" {
     // standard addition of same type and size
     const v10 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v11 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    const v12 = v10.addV(v11);
-    const v13 = v10.addA(.{ 4, 5, 6 });
-    const v14 = v10.addS(1);
+    const v12 = v10.add(v11);
+    const v13 = v10.add([3]i32{ 4, 5, 6 });
+    const v14 = v10.add(1);
     try testing.expectEqual([3]i32{ 5, 7, 9 }, v12.data);
     try testing.expectEqual([3]i32{ 5, 7, 9 }, v13.data);
     try testing.expectEqual([3]i32{ 2, 3, 4 }, v14.data);
 
+    const vnew = v10.add(v11.data[0..3]);
+    try testing.expectEqual([3]i32{ 5, 7, 9 }, vnew.data);
+
     // addition of same type with different size
     const v15 = Vec(i64, 3).initA(.{ 4, 5, 6 });
-    const v16 = v10.addFromV(i64, v15);
+    const v16 = v10.add(v15);
 
     const a2 = [3]i64{ 4, 5, 6 };
-    const v17 = v10.addFromA(i64, a2);
+    const v17 = v10.add(a2);
 
     const s2: i64 = 1;
-    const v18 = v10.addFromS(i64, s2);
+    const v18 = v10.add(s2);
     try testing.expectEqual([3]i32{ 5, 7, 9 }, v16.data);
     try testing.expectEqual([3]i32{ 5, 7, 9 }, v17.data);
     try testing.expectEqual([3]i32{ 2, 3, 4 }, v18.data);
 
     // Both Vector types
     // addition of different type and size
-    const v19 = v1.addFromV(i64, v15);
-    const v20 = v10.addFromV(f64, v6);
+    const v19 = v1.add(v15);
+    const v20 = v10.add(v6);
     try testing.expectEqual([3]f32{ 5.0, 7.0, 9.0 }, v19.data);
     try testing.expectEqual([3]i32{ 5, 7, 9 }, v20.data);
 
-    const v21 = v1.addFromA(i64, a2);
-    const v22 = v10.addFromA(f64, a1);
+    const v21 = v1.add(a2);
+    const v22 = v10.add(a1);
     try testing.expectEqual([3]f32{ 5.0, 7.0, 9.0 }, v21.data);
     try testing.expectEqual([3]i32{ 5, 7, 9 }, v22.data);
 
-    const v23 = v1.addFromS(i64, s2);
-    const v24 = v10.addFromS(f64, s1);
+    const v23 = v1.add(s2);
+    const v24 = v10.add(s1);
     try testing.expectEqual([3]f32{ 2.0, 3.0, 4.0 }, v23.data);
     try testing.expectEqual([3]i32{ 2, 3, 4 }, v24.data);
 }
@@ -1505,22 +1040,22 @@ test "Subtraction" {
     // standard subtraction of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v3 = v1.subV(v2);
-    const v4 = v1.subA(.{ 4.0, 5.0, 6.0 });
-    const v5 = v1.subS(1.0);
+    const v3 = v1.sub(v2);
+    const v4 = v1.sub(.{ 4.0, 5.0, 6.0 });
+    const v5 = v1.sub(1.0);
     try testing.expectEqual([3]f32{ -3.0, -3.0, -3.0 }, v3.data);
     try testing.expectEqual([3]f32{ -3.0, -3.0, -3.0 }, v4.data);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v5.data);
 
     // subtraction of same type with different size
     const v6 = Vec(f64, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v7 = v1.subFromV(f64, v6);
+    const v7 = v1.sub(v6);
 
     const a1 = [3]f64{ 4.0, 5.0, 6.0 };
-    const v8 = v1.subFromA(f64, a1);
+    const v8 = v1.sub(a1);
 
     const s1: f64 = 1.0;
-    const v9 = v1.subFromS(f64, s1);
+    const v9 = v1.sub(s1);
     try testing.expectEqual([3]f32{ -3.0, -3.0, -3.0 }, v7.data);
     try testing.expectEqual([3]f32{ -3.0, -3.0, -3.0 }, v8.data);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v9.data);
@@ -1529,40 +1064,40 @@ test "Subtraction" {
     // standard subtraction of same type and size
     const v10 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v11 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    const v12 = v10.subV(v11);
-    const v13 = v10.subA(.{ 4, 5, 6 });
-    const v14 = v10.subS(1);
+    const v12 = v10.sub(v11);
+    const v13 = v10.sub(.{ 4, 5, 6 });
+    const v14 = v10.sub(1);
     try testing.expectEqual([3]i32{ -3, -3, -3 }, v12.data);
     try testing.expectEqual([3]i32{ -3, -3, -3 }, v13.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v14.data);
 
     // subtraction of same type with different size
     const v15 = Vec(i64, 3).initA(.{ 4, 5, 6 });
-    const v16 = v10.subFromV(i64, v15);
+    const v16 = v10.sub(v15);
 
     const a2 = [3]i64{ 4, 5, 6 };
-    const v17 = v10.subFromA(i64, a2);
+    const v17 = v10.sub(a2);
 
     const s2: i64 = 1;
-    const v18 = v10.subFromS(i64, s2);
+    const v18 = v10.sub(s2);
     try testing.expectEqual([3]i32{ -3, -3, -3 }, v16.data);
     try testing.expectEqual([3]i32{ -3, -3, -3 }, v17.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v18.data);
 
     // Both Vector types
     // subtraction of different type and size
-    const v19 = v1.subFromV(i64, v15);
-    const v20 = v10.subFromV(f64, v6);
+    const v19 = v1.sub(v15);
+    const v20 = v10.sub(v6);
     try testing.expectEqual([3]f32{ -3.0, -3.0, -3.0 }, v19.data);
     try testing.expectEqual([3]i32{ -3, -3, -3 }, v20.data);
 
-    const v21 = v1.subFromA(i64, a2);
-    const v22 = v10.subFromA(f64, a1);
+    const v21 = v1.sub(a2);
+    const v22 = v10.sub(a1);
     try testing.expectEqual([3]f32{ -3.0, -3.0, -3.0 }, v21.data);
     try testing.expectEqual([3]i32{ -3, -3, -3 }, v22.data);
 
-    const v23 = v1.subFromS(i64, s2);
-    const v24 = v10.subFromS(f64, s1);
+    const v23 = v1.sub(s2);
+    const v24 = v10.sub(s1);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v23.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v24.data);
 }
@@ -1572,22 +1107,22 @@ test "Multiplication" {
     // standard multiplication of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v3 = v1.mulV(v2);
-    const v4 = v1.mulA(.{ 4.0, 5.0, 6.0 });
-    const v5 = v1.mulS(2.0);
+    const v3 = v1.mul(v2);
+    const v4 = v1.mul(.{ 4.0, 5.0, 6.0 });
+    const v5 = v1.mul(2.0);
     try testing.expectEqual([3]f32{ 4.0, 10.0, 18.0 }, v3.data);
     try testing.expectEqual([3]f32{ 4.0, 10.0, 18.0 }, v4.data);
     try testing.expectEqual([3]f32{ 2.0, 4.0, 6.0 }, v5.data);
 
     // multiplication of same type with different size
     const v6 = Vec(f64, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v7 = v1.mulFromV(f64, v6);
+    const v7 = v1.mul(v6);
 
     const a1 = [3]f64{ 4.0, 5.0, 6.0 };
-    const v8 = v1.mulFromA(f64, a1);
+    const v8 = v1.mul(a1);
 
     const s1: f64 = 2.0;
-    const v9 = v1.mulFromS(f64, s1);
+    const v9 = v1.mul(s1);
     try testing.expectEqual([3]f32{ 4.0, 10.0, 18.0 }, v7.data);
     try testing.expectEqual([3]f32{ 4.0, 10.0, 18.0 }, v8.data);
     try testing.expectEqual([3]f32{ 2.0, 4.0, 6.0 }, v9.data);
@@ -1596,40 +1131,40 @@ test "Multiplication" {
     // standard multiplication of same type and size
     const v10 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v11 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    const v12 = v10.mulV(v11);
-    const v13 = v10.mulA(.{ 4, 5, 6 });
-    const v14 = v10.mulS(2);
+    const v12 = v10.mul(v11);
+    const v13 = v10.mul(.{ 4, 5, 6 });
+    const v14 = v10.mul(2);
     try testing.expectEqual([3]i32{ 4, 10, 18 }, v12.data);
     try testing.expectEqual([3]i32{ 4, 10, 18 }, v13.data);
     try testing.expectEqual([3]i32{ 2, 4, 6 }, v14.data);
 
     // multiplication of same type with different size
     const v15 = Vec(i64, 3).initA(.{ 4, 5, 6 });
-    const v16 = v10.mulFromV(i64, v15);
+    const v16 = v10.mul(v15);
 
     const a2 = [3]i64{ 4, 5, 6 };
-    const v17 = v10.mulFromA(i64, a2);
+    const v17 = v10.mul(a2);
 
     const s2: i64 = 2;
-    const v18 = v10.mulFromS(i64, s2);
+    const v18 = v10.mul(s2);
     try testing.expectEqual([3]i32{ 4, 10, 18 }, v16.data);
     try testing.expectEqual([3]i32{ 4, 10, 18 }, v17.data);
     try testing.expectEqual([3]i32{ 2, 4, 6 }, v18.data);
 
     // Both Vector types
     // multiplication of different type and size
-    const v19 = v1.mulFromV(i64, v15);
-    const v20 = v10.mulFromV(f64, v6);
+    const v19 = v1.mul(v15);
+    const v20 = v10.mul(v6);
     try testing.expectEqual([3]f32{ 4.0, 10.0, 18.0 }, v19.data);
     try testing.expectEqual([3]i32{ 4, 10, 18 }, v20.data);
 
-    const v21 = v1.mulFromA(i64, a2);
-    const v22 = v10.mulFromA(f64, a1);
+    const v21 = v1.mul(a2);
+    const v22 = v10.mul(a1);
     try testing.expectEqual([3]f32{ 4.0, 10.0, 18.0 }, v21.data);
     try testing.expectEqual([3]i32{ 4, 10, 18 }, v22.data);
 
-    const v23 = v1.mulFromS(i64, s2);
-    const v24 = v10.mulFromS(f64, s1);
+    const v23 = v1.mul(s2);
+    const v24 = v10.mul(s1);
     try testing.expectEqual([3]f32{ 2.0, 4.0, 6.0 }, v23.data);
     try testing.expectEqual([3]i32{ 2, 4, 6 }, v24.data);
 }
@@ -1639,22 +1174,22 @@ test "Division" {
     // standard division of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v3 = try v1.divV(v2);
-    const v4 = try v1.divA(.{ 4.0, 5.0, 6.0 });
-    const v5 = try v1.divS(2.0);
+    const v3 = try v1.div(v2);
+    const v4 = try v1.div(.{ 4.0, 5.0, 6.0 });
+    const v5 = try v1.div(2.0);
     try testing.expectEqual([3]f32{ 0.25, 0.4, 0.5 }, v3.data);
     try testing.expectEqual([3]f32{ 0.25, 0.4, 0.5 }, v4.data);
     try testing.expectEqual([3]f32{ 0.5, 1.0, 1.5 }, v5.data);
 
     // division of same type with different size
     const v6 = Vec(f64, 3).initA(.{ 4.0, 5.0, 6.0 });
-    const v7 = try v1.divFromV(f64, v6);
+    const v7 = try v1.div(v6);
 
     const a1 = [3]f64{ 4.0, 5.0, 6.0 };
-    const v8 = try v1.divFromA(f64, a1);
+    const v8 = try v1.div(a1);
 
     const s1: f64 = 2.0;
-    const v9 = try v1.divFromS(f64, s1);
+    const v9 = try v1.div(s1);
     try testing.expectEqual([3]f32{ 0.25, 0.4, 0.5 }, v7.data);
     try testing.expectEqual([3]f32{ 0.25, 0.4, 0.5 }, v8.data);
     try testing.expectEqual([3]f32{ 0.5, 1.0, 1.5 }, v9.data);
@@ -1663,40 +1198,40 @@ test "Division" {
     // standard division of same type and size
     const v10 = Vec(i32, 3).initA(.{ 4, 5, 6 });
     const v11 = Vec(i32, 3).initA(.{ 1, 2, 3 });
-    const v12 = try v10.divV(v11);
-    const v13 = try v10.divA(.{ 1, 2, 3 });
-    const v14 = try v10.divS(2);
+    const v12 = try v10.div(v11);
+    const v13 = try v10.div(.{ 1, 2, 3 });
+    const v14 = try v10.div(2);
     try testing.expectEqual([3]i32{ 4, 2, 2 }, v12.data);
     try testing.expectEqual([3]i32{ 4, 2, 2 }, v13.data);
     try testing.expectEqual([3]i32{ 2, 2, 3 }, v14.data);
 
     // division of same type with different size
     const v15 = Vec(i64, 3).initA(.{ 4, 5, 6 });
-    const v16 = try v11.divFromV(i64, v15);
+    const v16 = try v11.div(v15);
 
     const a2 = [3]i64{ 4, 5, 6 };
-    const v17 = try v11.divFromA(i64, a2);
+    const v17 = try v11.div(a2);
 
     const s2: i64 = 2;
-    const v18 = try v11.divFromS(i64, s2);
+    const v18 = try v11.div(s2);
     try testing.expectEqual([3]i32{ 0, 0, 0 }, v16.data);
     try testing.expectEqual([3]i32{ 0, 0, 0 }, v17.data);
     try testing.expectEqual([3]i32{ 0, 1, 1 }, v18.data);
 
     // Both Vector types
     // division of different type and size
-    const v19 = try v1.divFromV(i64, v15);
-    const v20 = try v11.divFromV(f64, v6);
+    const v19 = try v1.div(v15);
+    const v20 = try v11.div(v6);
     try testing.expectEqual([3]f32{ 0.25, 0.4, 0.5 }, v19.data);
     try testing.expectEqual([3]i32{ 0, 0, 0 }, v20.data);
 
-    const v21 = try v1.divFromA(i64, a2);
-    const v22 = try v11.divFromA(f64, a1);
+    const v21 = try v1.div(a2);
+    const v22 = try v11.div(a1);
     try testing.expectEqual([3]f32{ 0.25, 0.4, 0.5 }, v21.data);
     try testing.expectEqual([3]i32{ 0, 0, 0 }, v22.data);
 
-    const v23 = try v1.divFromS(i64, s2);
-    const v24 = try v11.divFromS(f64, s1);
+    const v23 = try v1.div(s2);
+    const v24 = try v11.div(s1);
     try testing.expectEqual([3]f32{ 0.5, 1.0, 1.5 }, v23.data);
     try testing.expectEqual([3]i32{ 0, 1, 1 }, v24.data);
 }
@@ -1706,22 +1241,22 @@ test "Modulus" {
     // standard modulus of same type and size
     const v1 = Vec(f32, 3).initA(.{ 2.0, 5.0, 8.0 });
     const v2 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-    const v3 = try v1.modV(v2);
-    const v4 = try v1.modA(.{ 1.0, 2.0, 3.0 });
-    const v5 = try v1.modS(2.0);
+    const v3 = try v1.mod(v2);
+    const v4 = try v1.mod(.{ 1.0, 2.0, 3.0 });
+    const v5 = try v1.mod(2.0);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v3.data);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v4.data);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 0.0 }, v5.data);
 
     // modulus of same type with different size
     const v6 = Vec(f64, 3).initA(.{ 1.0, 2.0, 3.0 });
-    const v7 = try v1.modFromV(f64, v6);
+    const v7 = try v1.mod(v6);
 
     const a1 = [3]f64{ 1.0, 2.0, 3.0 };
-    const v8 = try v1.modFromA(f64, a1);
+    const v8 = try v1.mod(a1);
 
     const s1: f64 = 2.0;
-    const v9 = try v1.modFromS(f64, s1);
+    const v9 = try v1.mod(s1);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v7.data);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v8.data);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 0.0 }, v9.data);
@@ -1730,40 +1265,40 @@ test "Modulus" {
     // standard modulus of same type and size
     const v10 = Vec(i32, 3).initA(.{ 2, 5, 8 });
     const v11 = Vec(i32, 3).initA(.{ 1, 2, 3 });
-    const v12 = try v10.modV(v11);
-    const v13 = try v10.modA(.{ 1, 2, 3 });
-    const v14 = try v10.modS(2);
+    const v12 = try v10.mod(v11);
+    const v13 = try v10.mod(.{ 1, 2, 3 });
+    const v14 = try v10.mod(2);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v12.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v13.data);
     try testing.expectEqual([3]i32{ 0, 1, 0 }, v14.data);
 
     // modulus of same type with different size
     const v15 = Vec(i64, 3).initA(.{ 1, 2, 3 });
-    const v16 = try v10.modFromV(i64, v15);
+    const v16 = try v10.mod(v15);
 
     const a2 = [3]i64{ 1, 2, 3 };
-    const v17 = try v10.modFromA(i64, a2);
+    const v17 = try v10.mod(a2);
 
     const s2: i64 = 2;
-    const v18 = try v10.modFromS(i64, s2);
+    const v18 = try v10.mod(s2);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v16.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v17.data);
     try testing.expectEqual([3]i32{ 0, 1, 0 }, v18.data);
 
     // Both Vector types
     // modulus of different type and size
-    const v19 = try v1.modFromV(i64, v15);
-    const v20 = try v10.modFromV(f64, v6);
+    const v19 = try v1.mod(v15);
+    const v20 = try v10.mod(v6);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v19.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v20.data);
 
-    const v21 = try v1.modFromA(i64, a2);
-    const v22 = try v10.modFromA(f64, a1);
+    const v21 = try v1.mod(a2);
+    const v22 = try v10.mod(a1);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 2.0 }, v21.data);
     try testing.expectEqual([3]i32{ 0, 1, 2 }, v22.data);
 
-    const v23 = try v1.modFromS(i64, s2);
-    const v24 = try v10.modFromS(f64, s1);
+    const v23 = try v1.mod(s2);
+    const v24 = try v10.mod(s1);
     try testing.expectEqual([3]f32{ 0.0, 1.0, 0.0 }, v23.data);
     try testing.expectEqual([3]i32{ 0, 1, 0 }, v24.data);
 }
@@ -1773,22 +1308,22 @@ test "Remainder" {
     // standard remainder of same type and size
     const v1 = Vec(f32, 3).initA(.{ -2.0, -5.0, -8.0 });
     const v2 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-    const v3 = try v1.remV(v2);
-    const v4 = try v1.remA(.{ 1.0, 2.0, 3.0 });
-    const v5 = try v1.remS(2.0);
+    const v3 = try v1.rem(v2);
+    const v4 = try v1.rem(.{ 1.0, 2.0, 3.0 });
+    const v5 = try v1.rem(2.0);
     try testing.expectEqual([3]f32{ 0.0, -1.0, -2.0 }, v3.data);
     try testing.expectEqual([3]f32{ 0.0, -1.0, -2.0 }, v4.data);
     try testing.expectEqual([3]f32{ 0.0, -1.0, 0.0 }, v5.data);
 
     // remainder of same type with different size
     const v6 = Vec(f64, 3).initA(.{ 1.0, 2.0, 3.0 });
-    const v7 = try v1.remFromV(f64, v6);
+    const v7 = try v1.rem(v6);
 
     const a1 = [3]f64{ 1.0, 2.0, 3.0 };
-    const v8 = try v1.remFromA(f64, a1);
+    const v8 = try v1.rem(a1);
 
     const s1: f64 = 2.0;
-    const v9 = try v1.remFromS(f64, s1);
+    const v9 = try v1.rem(s1);
     try testing.expectEqual([3]f32{ 0.0, -1.0, -2.0 }, v7.data);
     try testing.expectEqual([3]f32{ 0.0, -1.0, -2.0 }, v8.data);
     try testing.expectEqual([3]f32{ 0.0, -1.0, 0.0 }, v9.data);
@@ -1797,40 +1332,40 @@ test "Remainder" {
     // standard remainder of same type and size
     const v10 = Vec(i32, 3).initA(.{ -2, -5, -8 });
     const v11 = Vec(i32, 3).initA(.{ 1, 2, 3 });
-    const v12 = try v10.remV(v11);
-    const v13 = try v10.remA(.{ 1, 2, 3 });
-    const v14 = try v10.remS(2);
+    const v12 = try v10.rem(v11);
+    const v13 = try v10.rem(.{ 1, 2, 3 });
+    const v14 = try v10.rem(2);
     try testing.expectEqual([3]i32{ 0, -1, -2 }, v12.data);
     try testing.expectEqual([3]i32{ 0, -1, -2 }, v13.data);
     try testing.expectEqual([3]i32{ 0, -1, 0 }, v14.data);
 
     // remainder of same type with different size
     const v15 = Vec(i64, 3).initA(.{ 1, 2, 3 });
-    const v16 = try v10.remFromV(i64, v15);
+    const v16 = try v10.rem(v15);
 
     const a2 = [3]i64{ 1, 2, 3 };
-    const v17 = try v10.remFromA(i64, a2);
+    const v17 = try v10.rem(a2);
 
     const s2: i64 = 2;
-    const v18 = try v10.remFromS(i64, s2);
+    const v18 = try v10.rem(s2);
     try testing.expectEqual([3]i32{ 0, -1, -2 }, v16.data);
     try testing.expectEqual([3]i32{ 0, -1, -2 }, v17.data);
     try testing.expectEqual([3]i32{ 0, -1, 0 }, v18.data);
 
     // Both Vector types
     // remainder of different type and size
-    const v19 = try v1.remFromV(i64, v15);
-    const v20 = try v10.remFromV(f64, v6);
+    const v19 = try v1.rem(v15);
+    const v20 = try v10.rem(v6);
     try testing.expectEqual([3]f32{ 0.0, -1.0, -2.0 }, v19.data);
     try testing.expectEqual([3]i32{ 0, -1, -2 }, v20.data);
 
-    const v21 = try v1.remFromA(i64, a2);
-    const v22 = try v10.remFromA(f64, a1);
+    const v21 = try v1.rem(a2);
+    const v22 = try v10.rem(a1);
     try testing.expectEqual([3]f32{ 0.0, -1.0, -2.0 }, v21.data);
     try testing.expectEqual([3]i32{ 0, -1, -2 }, v22.data);
 
-    const v23 = try v1.remFromS(i64, s2);
-    const v24 = try v10.remFromS(f64, s1);
+    const v23 = try v1.rem(s2);
+    const v24 = try v10.rem(s1);
     try testing.expectEqual([3]f32{ 0.0, -1.0, 0.0 }, v23.data);
     try testing.expectEqual([3]i32{ 0, -1, 0 }, v24.data);
 }
@@ -1840,12 +1375,12 @@ test "Greater than" {
     // standard greater than of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    try testing.expect(@reduce(.And, v2.greaterV(v1)));
-    try testing.expect(!@reduce(.And, v2.greaterV(v2)));
-    try testing.expect(@reduce(.And, v2.greaterA(.{ 1.0, 2.0, 3.0 })));
-    try testing.expect(!@reduce(.And, v2.greaterA(.{ 4.0, 5.0, 6.0 })));
-    try testing.expect(@reduce(.And, v2.greaterS(3.0)));
-    try testing.expect(!@reduce(.And, v2.greaterS(6.0)));
+    try testing.expect(@reduce(.And, v2.greater(v1)));
+    try testing.expect(!@reduce(.And, v2.greater(v2)));
+    try testing.expect(@reduce(.And, v2.greater(.{ 1.0, 2.0, 3.0 })));
+    try testing.expect(!@reduce(.And, v2.greater(.{ 4.0, 5.0, 6.0 })));
+    try testing.expect(@reduce(.And, v2.greater(3.0)));
+    try testing.expect(!@reduce(.And, v2.greater(6.0)));
 
     // greater than of same type with different size
     const v3 = Vec(f64, 3).initA(.{ 1.0, 2.0, 3.0 });
@@ -1854,23 +1389,23 @@ test "Greater than" {
     const a2 = [3]f64{ 4.0, 5.0, 6.0 };
     const s1: f64 = 3.0;
     const s2: f64 = 6.0;
-    try testing.expect(@reduce(.And, v2.greaterFromV(f64, v3)));
-    try testing.expect(!@reduce(.And, v2.greaterFromV(f64, v4)));
-    try testing.expect(@reduce(.And, v2.greaterFromA(f64, a1)));
-    try testing.expect(!@reduce(.And, v2.greaterFromA(f64, a2)));
-    try testing.expect(@reduce(.And, v2.greaterFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v2.greaterFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v2.greater(v3)));
+    try testing.expect(!@reduce(.And, v2.greater(v4)));
+    try testing.expect(@reduce(.And, v2.greater(a1)));
+    try testing.expect(!@reduce(.And, v2.greater(a2)));
+    try testing.expect(@reduce(.And, v2.greater(s1)));
+    try testing.expect(!@reduce(.And, v2.greater(s2)));
 
     // Signed Integral Vector
     // standard greater than of same type and size
     const v5 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v6 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    try testing.expect(@reduce(.And, v6.greaterV(v5)));
-    try testing.expect(!@reduce(.And, v6.greaterV(v6)));
-    try testing.expect(@reduce(.And, v6.greaterA(.{ 1, 2, 3 })));
-    try testing.expect(!@reduce(.And, v6.greaterA(.{ 4, 5, 6 })));
-    try testing.expect(@reduce(.And, v6.greaterS(3)));
-    try testing.expect(!@reduce(.And, v6.greaterS(6)));
+    try testing.expect(@reduce(.And, v6.greater(v5)));
+    try testing.expect(!@reduce(.And, v6.greater(v6)));
+    try testing.expect(@reduce(.And, v6.greater(.{ 1, 2, 3 })));
+    try testing.expect(!@reduce(.And, v6.greater(.{ 4, 5, 6 })));
+    try testing.expect(@reduce(.And, v6.greater(3)));
+    try testing.expect(!@reduce(.And, v6.greater(6)));
 
     // greater than of same type with different size
     const v7 = Vec(i64, 3).initA(.{ 1, 2, 3 });
@@ -1879,27 +1414,27 @@ test "Greater than" {
     const a4 = [3]i64{ 4, 5, 6 };
     const s3: i64 = 3;
     const s4: i64 = 6;
-    try testing.expect(@reduce(.And, v6.greaterFromV(i64, v7)));
-    try testing.expect(!@reduce(.And, v6.greaterFromV(i64, v8)));
-    try testing.expect(@reduce(.And, v6.greaterFromA(i64, a3)));
-    try testing.expect(!@reduce(.And, v6.greaterFromA(i64, a4)));
-    try testing.expect(@reduce(.And, v6.greaterFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v6.greaterFromS(i64, s4)));
+    try testing.expect(@reduce(.And, v6.greater(v7)));
+    try testing.expect(!@reduce(.And, v6.greater(v8)));
+    try testing.expect(@reduce(.And, v6.greater(a3)));
+    try testing.expect(!@reduce(.And, v6.greater(a4)));
+    try testing.expect(@reduce(.And, v6.greater(s3)));
+    try testing.expect(!@reduce(.And, v6.greater(s4)));
 
     // Both Vector types
     // greater than of different type and size
-    try testing.expect(@reduce(.And, v2.greaterFromV(i64, v7)));
-    try testing.expect(!@reduce(.And, v2.greaterFromV(i64, v8)));
-    try testing.expect(@reduce(.And, v6.greaterFromV(f64, v3)));
-    try testing.expect(!@reduce(.And, v6.greaterFromV(f64, v4)));
-    try testing.expect(@reduce(.And, v2.greaterFromA(i64, a3)));
-    try testing.expect(!@reduce(.And, v2.greaterFromA(i64, a4)));
-    try testing.expect(@reduce(.And, v6.greaterFromA(f64, a1)));
-    try testing.expect(!@reduce(.And, v6.greaterFromA(f64, a2)));
-    try testing.expect(@reduce(.And, v2.greaterFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v2.greaterFromS(i64, s4)));
-    try testing.expect(@reduce(.And, v6.greaterFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v6.greaterFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v2.greater(v7)));
+    try testing.expect(!@reduce(.And, v2.greater(v8)));
+    try testing.expect(@reduce(.And, v6.greater(v3)));
+    try testing.expect(!@reduce(.And, v6.greater(v4)));
+    try testing.expect(@reduce(.And, v2.greater(a3)));
+    try testing.expect(!@reduce(.And, v2.greater(a4)));
+    try testing.expect(@reduce(.And, v6.greater(a1)));
+    try testing.expect(!@reduce(.And, v6.greater(a2)));
+    try testing.expect(@reduce(.And, v2.greater(s3)));
+    try testing.expect(!@reduce(.And, v2.greater(s4)));
+    try testing.expect(@reduce(.And, v6.greater(s1)));
+    try testing.expect(!@reduce(.And, v6.greater(s2)));
 }
 
 test "Greater than or equal" {
@@ -1907,12 +1442,12 @@ test "Greater than or equal" {
     // standard greater than or equal of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    try testing.expect(@reduce(.And, v2.greaterEqV(v1)));
-    try testing.expect(@reduce(.And, v2.greaterEqV(v2)));
-    try testing.expect(@reduce(.And, v2.greaterEqA(.{ 1.0, 2.0, 3.0 })));
-    try testing.expect(@reduce(.And, v2.greaterEqA(.{ 4.0, 5.0, 6.0 })));
-    try testing.expect(@reduce(.And, v2.greaterEqS(3.0)));
-    try testing.expect(!@reduce(.And, v2.greaterEqS(6.0)));
+    try testing.expect(@reduce(.And, v2.greaterEq(v1)));
+    try testing.expect(@reduce(.And, v2.greaterEq(v2)));
+    try testing.expect(@reduce(.And, v2.greaterEq(.{ 1.0, 2.0, 3.0 })));
+    try testing.expect(@reduce(.And, v2.greaterEq(.{ 4.0, 5.0, 6.0 })));
+    try testing.expect(@reduce(.And, v2.greaterEq(3.0)));
+    try testing.expect(!@reduce(.And, v2.greaterEq(6.0)));
 
     // greater than or equal of same type with different size
     const v3 = Vec(f64, 3).initA(.{ 1.0, 2.0, 3.0 });
@@ -1921,23 +1456,23 @@ test "Greater than or equal" {
     const a2 = [3]f64{ 4.0, 5.0, 6.0 };
     const s1: f64 = 3.0;
     const s2: f64 = 6.0;
-    try testing.expect(@reduce(.And, v2.greaterEqFromV(f64, v3)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromV(f64, v4)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromA(f64, a1)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromA(f64, a2)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v2.greaterEqFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v2.greaterEq(v3)));
+    try testing.expect(@reduce(.And, v2.greaterEq(v4)));
+    try testing.expect(@reduce(.And, v2.greaterEq(a1)));
+    try testing.expect(@reduce(.And, v2.greaterEq(a2)));
+    try testing.expect(@reduce(.And, v2.greaterEq(s1)));
+    try testing.expect(!@reduce(.And, v2.greaterEq(s2)));
 
     // Signed Integral Vector
     // standard greater than or equal of same type and size
     const v5 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v6 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    try testing.expect(@reduce(.And, v6.greaterEqV(v5)));
-    try testing.expect(@reduce(.And, v6.greaterEqV(v6)));
-    try testing.expect(@reduce(.And, v6.greaterEqA(.{ 1, 2, 3 })));
-    try testing.expect(@reduce(.And, v6.greaterEqA(.{ 4, 5, 6 })));
-    try testing.expect(@reduce(.And, v6.greaterEqS(3)));
-    try testing.expect(!@reduce(.And, v6.greaterEqS(6)));
+    try testing.expect(@reduce(.And, v6.greaterEq(v5)));
+    try testing.expect(@reduce(.And, v6.greaterEq(v6)));
+    try testing.expect(@reduce(.And, v6.greaterEq(.{ 1, 2, 3 })));
+    try testing.expect(@reduce(.And, v6.greaterEq(.{ 4, 5, 6 })));
+    try testing.expect(@reduce(.And, v6.greaterEq(3)));
+    try testing.expect(!@reduce(.And, v6.greaterEq(6)));
 
     // greater than or equal of same type with different size
     const v7 = Vec(i64, 3).initA(.{ 1, 2, 3 });
@@ -1946,27 +1481,27 @@ test "Greater than or equal" {
     const a4 = [3]i64{ 4, 5, 6 };
     const s3: i64 = 3;
     const s4: i64 = 6;
-    try testing.expect(@reduce(.And, v6.greaterEqFromV(i64, v7)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromV(i64, v8)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromA(i64, a3)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromA(i64, a4)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v6.greaterEqFromS(i64, s4)));
+    try testing.expect(@reduce(.And, v6.greaterEq(v7)));
+    try testing.expect(@reduce(.And, v6.greaterEq(v8)));
+    try testing.expect(@reduce(.And, v6.greaterEq(a3)));
+    try testing.expect(@reduce(.And, v6.greaterEq(a4)));
+    try testing.expect(@reduce(.And, v6.greaterEq(s3)));
+    try testing.expect(!@reduce(.And, v6.greaterEq(s4)));
 
     // Both Vector types
     // greater than or equal of different type and size
-    try testing.expect(@reduce(.And, v2.greaterEqFromV(i64, v7)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromV(i64, v8)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromV(f64, v3)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromV(f64, v4)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromA(i64, a3)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromA(i64, a4)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromA(f64, a1)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromA(f64, a2)));
-    try testing.expect(@reduce(.And, v2.greaterEqFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v2.greaterEqFromS(i64, s4)));
-    try testing.expect(@reduce(.And, v6.greaterEqFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v6.greaterEqFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v2.greaterEq(v7)));
+    try testing.expect(@reduce(.And, v2.greaterEq(v8)));
+    try testing.expect(@reduce(.And, v6.greaterEq(v3)));
+    try testing.expect(@reduce(.And, v6.greaterEq(v4)));
+    try testing.expect(@reduce(.And, v2.greaterEq(a3)));
+    try testing.expect(@reduce(.And, v2.greaterEq(a4)));
+    try testing.expect(@reduce(.And, v6.greaterEq(a1)));
+    try testing.expect(@reduce(.And, v6.greaterEq(a2)));
+    try testing.expect(@reduce(.And, v2.greaterEq(s3)));
+    try testing.expect(!@reduce(.And, v2.greaterEq(s4)));
+    try testing.expect(@reduce(.And, v6.greaterEq(s1)));
+    try testing.expect(!@reduce(.And, v6.greaterEq(s2)));
 }
 
 test "Lesser than" {
@@ -1974,12 +1509,12 @@ test "Lesser than" {
     // standard lesser than of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    try testing.expect(@reduce(.And, v1.lesserV(v2)));
-    try testing.expect(!@reduce(.And, v1.lesserV(v1)));
-    try testing.expect(@reduce(.And, v1.lesserA(.{ 4.0, 5.0, 6.0 })));
-    try testing.expect(!@reduce(.And, v1.lesserA(.{ 1.0, 2.0, 3.0 })));
-    try testing.expect(@reduce(.And, v1.lesserS(4.0)));
-    try testing.expect(!@reduce(.And, v1.lesserS(1.0)));
+    try testing.expect(@reduce(.And, v1.lesser(v2)));
+    try testing.expect(!@reduce(.And, v1.lesser(v1)));
+    try testing.expect(@reduce(.And, v1.lesser(.{ 4.0, 5.0, 6.0 })));
+    try testing.expect(!@reduce(.And, v1.lesser(.{ 1.0, 2.0, 3.0 })));
+    try testing.expect(@reduce(.And, v1.lesser(4.0)));
+    try testing.expect(!@reduce(.And, v1.lesser(1.0)));
 
     // lesser than of same type with different size
     const v3 = Vec(f64, 3).initA(.{ 1.0, 2.0, 3.0 });
@@ -1988,23 +1523,23 @@ test "Lesser than" {
     const a2 = [3]f64{ 4.0, 5.0, 6.0 };
     const s1: f64 = 4.0;
     const s2: f64 = 1.0;
-    try testing.expect(@reduce(.And, v1.lesserFromV(f64, v4)));
-    try testing.expect(!@reduce(.And, v1.lesserFromV(f64, v3)));
-    try testing.expect(@reduce(.And, v1.lesserFromA(f64, a2)));
-    try testing.expect(!@reduce(.And, v1.lesserFromA(f64, a1)));
-    try testing.expect(@reduce(.And, v1.lesserFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v1.lesserFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v1.lesser(v4)));
+    try testing.expect(!@reduce(.And, v1.lesser(v3)));
+    try testing.expect(@reduce(.And, v1.lesser(a2)));
+    try testing.expect(!@reduce(.And, v1.lesser(a1)));
+    try testing.expect(@reduce(.And, v1.lesser(s1)));
+    try testing.expect(!@reduce(.And, v1.lesser(s2)));
 
     // Signed Integral Vector
     // standard lesser than of same type and size
     const v5 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v6 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    try testing.expect(@reduce(.And, v5.lesserV(v6)));
-    try testing.expect(!@reduce(.And, v5.lesserV(v5)));
-    try testing.expect(@reduce(.And, v5.lesserA(.{ 4, 5, 6 })));
-    try testing.expect(!@reduce(.And, v5.lesserA(.{ 1, 2, 3 })));
-    try testing.expect(@reduce(.And, v5.lesserS(4)));
-    try testing.expect(!@reduce(.And, v5.lesserS(1)));
+    try testing.expect(@reduce(.And, v5.lesser(v6)));
+    try testing.expect(!@reduce(.And, v5.lesser(v5)));
+    try testing.expect(@reduce(.And, v5.lesser(.{ 4, 5, 6 })));
+    try testing.expect(!@reduce(.And, v5.lesser(.{ 1, 2, 3 })));
+    try testing.expect(@reduce(.And, v5.lesser(4)));
+    try testing.expect(!@reduce(.And, v5.lesser(1)));
 
     // lesser than of same type with different size
     const v7 = Vec(i64, 3).initA(.{ 1, 2, 3 });
@@ -2013,27 +1548,27 @@ test "Lesser than" {
     const a4 = [3]i64{ 4, 5, 6 };
     const s3: i64 = 4;
     const s4: i64 = 1;
-    try testing.expect(@reduce(.And, v5.lesserFromV(i64, v8)));
-    try testing.expect(!@reduce(.And, v5.lesserFromV(i64, v7)));
-    try testing.expect(@reduce(.And, v5.lesserFromA(i64, a4)));
-    try testing.expect(!@reduce(.And, v5.lesserFromA(i64, a3)));
-    try testing.expect(@reduce(.And, v5.lesserFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v5.lesserFromS(i64, s4)));
+    try testing.expect(@reduce(.And, v5.lesser(v8)));
+    try testing.expect(!@reduce(.And, v5.lesser(v7)));
+    try testing.expect(@reduce(.And, v5.lesser(a4)));
+    try testing.expect(!@reduce(.And, v5.lesser(a3)));
+    try testing.expect(@reduce(.And, v5.lesser(s3)));
+    try testing.expect(!@reduce(.And, v5.lesser(s4)));
 
     // Both Vector types
     // lesser than of different type and size
-    try testing.expect(@reduce(.And, v1.lesserFromV(i64, v8)));
-    try testing.expect(!@reduce(.And, v1.lesserFromV(i64, v7)));
-    try testing.expect(@reduce(.And, v5.lesserFromV(f64, v4)));
-    try testing.expect(!@reduce(.And, v5.lesserFromV(f64, v3)));
-    try testing.expect(@reduce(.And, v1.lesserFromA(i64, a4)));
-    try testing.expect(!@reduce(.And, v1.lesserFromA(i64, a3)));
-    try testing.expect(@reduce(.And, v5.lesserFromA(f64, a2)));
-    try testing.expect(!@reduce(.And, v5.lesserFromA(f64, a1)));
-    try testing.expect(@reduce(.And, v1.lesserFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v1.lesserFromS(i64, s4)));
-    try testing.expect(@reduce(.And, v5.lesserFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v5.lesserFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v1.lesser(v8)));
+    try testing.expect(!@reduce(.And, v1.lesser(v7)));
+    try testing.expect(@reduce(.And, v5.lesser(v4)));
+    try testing.expect(!@reduce(.And, v5.lesser(v3)));
+    try testing.expect(@reduce(.And, v1.lesser(a4)));
+    try testing.expect(!@reduce(.And, v1.lesser(a3)));
+    try testing.expect(@reduce(.And, v5.lesser(a2)));
+    try testing.expect(!@reduce(.And, v5.lesser(a1)));
+    try testing.expect(@reduce(.And, v1.lesser(s3)));
+    try testing.expect(!@reduce(.And, v1.lesser(s4)));
+    try testing.expect(@reduce(.And, v5.lesser(s1)));
+    try testing.expect(!@reduce(.And, v5.lesser(s2)));
 }
 
 test "Lesser than or equal" {
@@ -2041,12 +1576,12 @@ test "Lesser than or equal" {
     // standard lesser than or equal of same type and size
     const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     const v2 = Vec(f32, 3).initA(.{ 4.0, 5.0, 6.0 });
-    try testing.expect(@reduce(.And, v1.lesserEqV(v2)));
-    try testing.expect(@reduce(.And, v1.lesserEqV(v1)));
-    try testing.expect(@reduce(.And, v1.lesserEqA(.{ 4.0, 5.0, 6.0 })));
-    try testing.expect(@reduce(.And, v1.lesserEqA(.{ 1.0, 2.0, 3.0 })));
-    try testing.expect(@reduce(.And, v1.lesserEqS(4.0)));
-    try testing.expect(!@reduce(.And, v1.lesserEqS(1.0)));
+    try testing.expect(@reduce(.And, v1.lesserEq(v2)));
+    try testing.expect(@reduce(.And, v1.lesserEq(v1)));
+    try testing.expect(@reduce(.And, v1.lesserEq(.{ 4.0, 5.0, 6.0 })));
+    try testing.expect(@reduce(.And, v1.lesserEq(.{ 1.0, 2.0, 3.0 })));
+    try testing.expect(@reduce(.And, v1.lesserEq(4.0)));
+    try testing.expect(!@reduce(.And, v1.lesserEq(1.0)));
 
     // lesser than or equal of same type with different size
     const v3 = Vec(f64, 3).initA(.{ 1.0, 2.0, 3.0 });
@@ -2055,23 +1590,23 @@ test "Lesser than or equal" {
     const a2 = [3]f64{ 4.0, 5.0, 6.0 };
     const s1: f64 = 4.0;
     const s2: f64 = 1.0;
-    try testing.expect(@reduce(.And, v1.lesserEqFromV(f64, v4)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromV(f64, v3)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromA(f64, a2)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromA(f64, a1)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v1.lesserEqFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v1.lesserEq(v4)));
+    try testing.expect(@reduce(.And, v1.lesserEq(v3)));
+    try testing.expect(@reduce(.And, v1.lesserEq(a2)));
+    try testing.expect(@reduce(.And, v1.lesserEq(a1)));
+    try testing.expect(@reduce(.And, v1.lesserEq(s1)));
+    try testing.expect(!@reduce(.And, v1.lesserEq(s2)));
 
     // Signed Integral Vector
     // standard lesser than or equal of same type and size
     const v5 = Vec(i32, 3).initA(.{ 1, 2, 3 });
     const v6 = Vec(i32, 3).initA(.{ 4, 5, 6 });
-    try testing.expect(@reduce(.And, v5.lesserEqV(v6)));
-    try testing.expect(@reduce(.And, v5.lesserEqV(v5)));
-    try testing.expect(@reduce(.And, v5.lesserEqA(.{ 4, 5, 6 })));
-    try testing.expect(@reduce(.And, v5.lesserEqA(.{ 1, 2, 3 })));
-    try testing.expect(@reduce(.And, v5.lesserEqS(4)));
-    try testing.expect(!@reduce(.And, v5.lesserEqS(1)));
+    try testing.expect(@reduce(.And, v5.lesserEq(v6)));
+    try testing.expect(@reduce(.And, v5.lesserEq(v5)));
+    try testing.expect(@reduce(.And, v5.lesserEq(.{ 4, 5, 6 })));
+    try testing.expect(@reduce(.And, v5.lesserEq(.{ 1, 2, 3 })));
+    try testing.expect(@reduce(.And, v5.lesserEq(4)));
+    try testing.expect(!@reduce(.And, v5.lesserEq(1)));
 
     // lesser than or equal of same type with different size
     const v7 = Vec(i64, 3).initA(.{ 1, 2, 3 });
@@ -2080,27 +1615,27 @@ test "Lesser than or equal" {
     const a4 = [3]i64{ 4, 5, 6 };
     const s3: i64 = 4;
     const s4: i64 = 1;
-    try testing.expect(@reduce(.And, v5.lesserEqFromV(i64, v8)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromV(i64, v7)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromA(i64, a4)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromA(i64, a3)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v5.lesserEqFromS(i64, s4)));
+    try testing.expect(@reduce(.And, v5.lesserEq(v8)));
+    try testing.expect(@reduce(.And, v5.lesserEq(v7)));
+    try testing.expect(@reduce(.And, v5.lesserEq(a4)));
+    try testing.expect(@reduce(.And, v5.lesserEq(a3)));
+    try testing.expect(@reduce(.And, v5.lesserEq(s3)));
+    try testing.expect(!@reduce(.And, v5.lesserEq(s4)));
 
     // Both Vector types
     // lesser than or equal of different type and size
-    try testing.expect(@reduce(.And, v1.lesserEqFromV(i64, v8)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromV(i64, v7)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromV(f64, v4)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromV(f64, v3)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromA(i64, a4)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromA(i64, a3)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromA(f64, a2)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromA(f64, a1)));
-    try testing.expect(@reduce(.And, v1.lesserEqFromS(i64, s3)));
-    try testing.expect(!@reduce(.And, v1.lesserEqFromS(i64, s4)));
-    try testing.expect(@reduce(.And, v5.lesserEqFromS(f64, s1)));
-    try testing.expect(!@reduce(.And, v5.lesserEqFromS(f64, s2)));
+    try testing.expect(@reduce(.And, v1.lesserEq(v8)));
+    try testing.expect(@reduce(.And, v1.lesserEq(v7)));
+    try testing.expect(@reduce(.And, v5.lesserEq(v4)));
+    try testing.expect(@reduce(.And, v5.lesserEq(v3)));
+    try testing.expect(@reduce(.And, v1.lesserEq(a4)));
+    try testing.expect(@reduce(.And, v1.lesserEq(a3)));
+    try testing.expect(@reduce(.And, v5.lesserEq(a2)));
+    try testing.expect(@reduce(.And, v5.lesserEq(a1)));
+    try testing.expect(@reduce(.And, v1.lesserEq(s3)));
+    try testing.expect(!@reduce(.And, v1.lesserEq(s4)));
+    try testing.expect(@reduce(.And, v5.lesserEq(s1)));
+    try testing.expect(!@reduce(.And, v5.lesserEq(s2)));
 }
 
 test "Equality" {
@@ -2108,12 +1643,12 @@ test "Equality" {
     // standard equality of same type and size
     const v1 = Vec(i32, 3).initA(.{ 1, 1, 1 });
     const v2 = Vec(i32, 3).initA(.{ 4, 4, 4 });
-    try testing.expect(@reduce(.And, v1.equalV(v1)));
-    try testing.expect(!@reduce(.Or, v1.equalV(v2)));
-    try testing.expect(@reduce(.And, v1.equalA(.{ 1, 1, 1 })));
-    try testing.expect(!@reduce(.Or, v1.equalA(.{ 4, 4, 4 })));
-    try testing.expect(@reduce(.And, v1.equalS(1)));
-    try testing.expect(!@reduce(.Or, v1.equalS(4)));
+    try testing.expect(@reduce(.And, v1.equals(v1)));
+    try testing.expect(!@reduce(.Or, v1.equals(v2)));
+    try testing.expect(@reduce(.And, v1.equals(.{ 1, 1, 1 })));
+    try testing.expect(!@reduce(.Or, v1.equals(.{ 4, 4, 4 })));
+    try testing.expect(@reduce(.And, v1.equals(1)));
+    try testing.expect(!@reduce(.Or, v1.equals(4)));
 
     // equality of same type with different size
     const v3 = Vec(i64, 3).initA(.{ 1, 1, 1 });
@@ -2122,23 +1657,23 @@ test "Equality" {
     const a2 = [3]i64{ 4, 4, 4 };
     const s1: i64 = 1;
     const s2: i64 = 4;
-    try testing.expect(@reduce(.And, v1.equalFromV(i64, v3)));
-    try testing.expect(!@reduce(.Or, v1.equalFromV(i64, v4)));
-    try testing.expect(@reduce(.And, v1.equalFromA(i64, a1)));
-    try testing.expect(!@reduce(.Or, v1.equalFromA(i64, a2)));
-    try testing.expect(@reduce(.And, v1.equalFromS(i64, s1)));
-    try testing.expect(!@reduce(.Or, v1.equalFromS(i64, s2)));
+    try testing.expect(@reduce(.And, v1.equals(v3)));
+    try testing.expect(!@reduce(.Or, v1.equals(v4)));
+    try testing.expect(@reduce(.And, v1.equals(a1)));
+    try testing.expect(!@reduce(.Or, v1.equals(a2)));
+    try testing.expect(@reduce(.And, v1.equals(s1)));
+    try testing.expect(!@reduce(.Or, v1.equals(s2)));
 
     // Floating point Vector
     // standard equality of same type and size
     const v5 = Vec(f32, 3).initA(.{ 1.0, 1.0, 1.0 });
     const v6 = Vec(f32, 3).initA(.{ 4.0, 4.0, 4.0 });
-    try testing.expect(@reduce(.And, v5.equalV(v5)));
-    try testing.expect(!@reduce(.Or, v5.equalV(v6)));
-    try testing.expect(@reduce(.And, v5.equalA(.{ 1.0, 1.0, 1.0 })));
-    try testing.expect(!@reduce(.Or, v5.equalA(.{ 4.0, 4.0, 4.0 })));
-    try testing.expect(@reduce(.And, v5.equalS(1.0)));
-    try testing.expect(!@reduce(.Or, v5.equalS(4.0)));
+    try testing.expect(@reduce(.And, v5.equals(v5)));
+    try testing.expect(!@reduce(.Or, v5.equals(v6)));
+    try testing.expect(@reduce(.And, v5.equals(.{ 1.0, 1.0, 1.0 })));
+    try testing.expect(!@reduce(.Or, v5.equals(.{ 4.0, 4.0, 4.0 })));
+    try testing.expect(@reduce(.And, v5.equals(1.0)));
+    try testing.expect(!@reduce(.Or, v5.equals(4.0)));
 
     // equality of same type with different size
     const v7 = Vec(f64, 3).initA(.{ 1.0, 1.0, 1.0 });
@@ -2147,27 +1682,27 @@ test "Equality" {
     const a4 = [3]f64{ 4.0, 4.0, 4.0 };
     const s3: f64 = 1.0;
     const s4: f64 = 4.0;
-    try testing.expect(@reduce(.And, v5.equalFromV(f64, v7)));
-    try testing.expect(!@reduce(.Or, v5.equalFromV(f64, v8)));
-    try testing.expect(@reduce(.And, v5.equalFromA(f64, a3)));
-    try testing.expect(!@reduce(.Or, v5.equalFromA(f64, a4)));
-    try testing.expect(@reduce(.And, v5.equalFromS(f64, s3)));
-    try testing.expect(!@reduce(.Or, v5.equalFromS(f64, s4)));
+    try testing.expect(@reduce(.And, v5.equals(v7)));
+    try testing.expect(!@reduce(.Or, v5.equals(v8)));
+    try testing.expect(@reduce(.And, v5.equals(a3)));
+    try testing.expect(!@reduce(.Or, v5.equals(a4)));
+    try testing.expect(@reduce(.And, v5.equals(s3)));
+    try testing.expect(!@reduce(.Or, v5.equals(s4)));
 
     // Both Vector types
     // equality of different type and size
-    try testing.expect(@reduce(.And, v1.equalFromV(f64, v7)));
-    try testing.expect(!@reduce(.Or, v1.equalFromV(f64, v8)));
-    try testing.expect(@reduce(.And, v5.equalFromV(i64, v3)));
-    try testing.expect(!@reduce(.Or, v5.equalFromV(i64, v4)));
-    try testing.expect(@reduce(.And, v1.equalFromA(f64, a3)));
-    try testing.expect(!@reduce(.Or, v1.equalFromA(f64, a4)));
-    try testing.expect(@reduce(.And, v5.equalFromA(i64, a1)));
-    try testing.expect(!@reduce(.Or, v5.equalFromA(i64, a2)));
-    try testing.expect(@reduce(.And, v1.equalFromS(f64, s3)));
-    try testing.expect(!@reduce(.Or, v1.equalFromS(f64, s4)));
-    try testing.expect(@reduce(.And, v5.equalFromS(i64, s1)));
-    try testing.expect(!@reduce(.Or, v5.equalFromS(i64, s2)));
+    try testing.expect(@reduce(.And, v1.equals(v7)));
+    try testing.expect(!@reduce(.Or, v1.equals(v8)));
+    try testing.expect(@reduce(.And, v5.equals(v3)));
+    try testing.expect(!@reduce(.Or, v5.equals(v4)));
+    try testing.expect(@reduce(.And, v1.equals(a3)));
+    try testing.expect(!@reduce(.Or, v1.equals(a4)));
+    try testing.expect(@reduce(.And, v5.equals(a1)));
+    try testing.expect(!@reduce(.Or, v5.equals(a2)));
+    try testing.expect(@reduce(.And, v1.equals(s3)));
+    try testing.expect(!@reduce(.Or, v1.equals(s4)));
+    try testing.expect(@reduce(.And, v5.equals(s1)));
+    try testing.expect(!@reduce(.Or, v5.equals(s2)));
 }
 
 test "Approximately" {
@@ -2176,14 +1711,14 @@ test "Approximately" {
     const v1 = Vec(f32, 3).initA(.{ 1.0, 1.0, 1.0 });
     const v2 = Vec(f32, 3).initA(.{ 1.0000001, 0.9999999, 1.0000001 });
     const v3 = Vec(f32, 3).initA(.{ 1.0000003, 0.9999997, 1.0000003 });
-    try testing.expect(@reduce(.And, v1.approxV(v2, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxV(v3, 0.0000002)));
-    try testing.expect(@reduce(.And, v1.approxA(.{ 1.0000001, 0.9999999, 1.0000001 }, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxA(.{ 1.0000003, 0.9999997, 1.0000003 }, 0.0000002)));
-    try testing.expect(@reduce(.And, v1.approxS(1.0000001, 0.0000002)));
-    try testing.expect(@reduce(.And, v1.approxS(0.9999999, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxS(1.0000003, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxS(0.9999997, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(v2, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(v3, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(.{ 1.0000001, 0.9999999, 1.0000001 }, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(.{ 1.0000003, 0.9999997, 1.0000003 }, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(1.0000001, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(0.9999999, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(1.0000003, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(0.9999997, 0.0000002)));
 
     // equality of same type with different size
     const v4 = Vec(f64, 3).initA(.{ 1.0000001, 0.9999999, 1.0000001 });
@@ -2194,24 +1729,24 @@ test "Approximately" {
     const s2: f64 = 0.9999999;
     const s3: f64 = 1.0000003;
     const s4: f64 = 0.9999997;
-    try testing.expect(@reduce(.And, v1.approxFromV(f64, v4, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxFromV(f64, v5, 0.0000002)));
-    try testing.expect(@reduce(.And, v1.approxFromA(f64, a1, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxFromA(f64, a2, 0.0000002)));
-    try testing.expect(@reduce(.And, v1.approxFromS(f64, s1, 0.0000002)));
-    try testing.expect(@reduce(.And, v1.approxFromS(f64, s2, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxFromS(f64, s3, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v1.approxFromS(f64, s4, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(v4, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(v5, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(a1, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(a2, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(s1, 0.0000002)));
+    try testing.expect(@reduce(.And, v1.approx(s2, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(s3, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v1.approx(s4, 0.0000002)));
 
     // Signed Integral Vector
     // standard equality of same type and size
     const v6 = Vec(i32, 3).initA(.{ 1, 1, 1 });
     const v7 = Vec(i32, 3).initA(.{ 2, 3, 2 });
-    try testing.expect(@reduce(.And, v6.approxV(v6, 0)));
-    try testing.expect(!@reduce(.Or, v6.approxV(v7, 0)));
-    try testing.expect(!@reduce(.And, v6.approxV(v7, 1)));
-    try testing.expect(@reduce(.Or, v6.approxV(v7, 1)));
-    try testing.expect(@reduce(.And, v6.approxV(v7, 2)));
+    try testing.expect(@reduce(.And, v6.approx(v6, 0)));
+    try testing.expect(!@reduce(.Or, v6.approx(v7, 0)));
+    try testing.expect(!@reduce(.And, v6.approx(v7, 1)));
+    try testing.expect(@reduce(.Or, v6.approx(v7, 1)));
+    try testing.expect(@reduce(.And, v6.approx(v7, 2)));
 
     // equality of same type with different size
     const v8 = Vec(i64, 3).initA(.{ 1, 1, 1 });
@@ -2220,51 +1755,51 @@ test "Approximately" {
     const a4 = [3]i64{ 2, 3, 2 };
     const s5: i64 = 1;
     const s6: i64 = 2;
-    try testing.expect(@reduce(.And, v6.approxFromV(i64, v8, 0)));
-    try testing.expect(!@reduce(.Or, v6.approxFromV(i64, v9, 0)));
-    try testing.expect(!@reduce(.And, v6.approxFromV(i64, v9, 1)));
-    try testing.expect(@reduce(.Or, v6.approxFromV(i64, v9, 1)));
-    try testing.expect(@reduce(.And, v6.approxFromV(i64, v9, 2)));
+    try testing.expect(@reduce(.And, v6.approx(v8, 0)));
+    try testing.expect(!@reduce(.Or, v6.approx(v9, 0)));
+    try testing.expect(!@reduce(.And, v6.approx(v9, 1)));
+    try testing.expect(@reduce(.Or, v6.approx(v9, 1)));
+    try testing.expect(@reduce(.And, v6.approx(v9, 2)));
 
-    try testing.expect(@reduce(.And, v6.approxFromA(i64, a3, 0)));
-    try testing.expect(!@reduce(.And, v6.approxFromA(i64, a4, 0)));
-    try testing.expect(!@reduce(.Or, v6.approxFromA(i64, a4, 0)));
-    try testing.expect(!@reduce(.And, v6.approxFromA(i64, a4, 1)));
-    try testing.expect(@reduce(.Or, v6.approxFromA(i64, a4, 1)));
-    try testing.expect(@reduce(.And, v6.approxFromA(i64, a4, 2)));
+    try testing.expect(@reduce(.And, v6.approx(a3, 0)));
+    try testing.expect(!@reduce(.And, v6.approx(a4, 0)));
+    try testing.expect(!@reduce(.Or, v6.approx(a4, 0)));
+    try testing.expect(!@reduce(.And, v6.approx(a4, 1)));
+    try testing.expect(@reduce(.Or, v6.approx(a4, 1)));
+    try testing.expect(@reduce(.And, v6.approx(a4, 2)));
 
-    try testing.expect(@reduce(.And, v6.approxFromS(i64, s5, 0)));
-    try testing.expect(!@reduce(.Or, v6.approxFromS(i64, s6, 0)));
-    try testing.expect(@reduce(.Or, v6.approxFromS(i64, s6, 1)));
+    try testing.expect(@reduce(.And, v6.approx(s5, 0)));
+    try testing.expect(!@reduce(.Or, v6.approx(s6, 0)));
+    try testing.expect(@reduce(.Or, v6.approx(s6, 1)));
 
     // Both Vector types
     // equality of different type and size
-    try testing.expect(@reduce(.And, v8.approxFromV(f32, v1, 0)));
-    try testing.expect(!@reduce(.Or, v9.approxFromV(f32, v1, 0)));
-    try testing.expect(!@reduce(.And, v9.approxFromV(f32, v1, 1)));
-    try testing.expect(@reduce(.Or, v9.approxFromV(f32, v1, 1)));
-    try testing.expect(@reduce(.And, v9.approxFromV(f32, v1, 2)));
+    try testing.expect(@reduce(.And, v8.approx(v1, 0)));
+    try testing.expect(!@reduce(.Or, v9.approx(v1, 0)));
+    try testing.expect(!@reduce(.And, v9.approx(v1, 1)));
+    try testing.expect(@reduce(.Or, v9.approx(v1, 1)));
+    try testing.expect(@reduce(.And, v9.approx(v1, 2)));
 
-    try testing.expect(@reduce(.And, v4.approxFromV(i32, v6, 0.0000002)));
-    try testing.expect(!@reduce(.Or, v5.approxFromV(i32, v6, 0.0000002)));
+    try testing.expect(@reduce(.And, v4.approx(v6, 0.0000002)));
+    try testing.expect(!@reduce(.Or, v5.approx(v6, 0.0000002)));
 
-    try testing.expect(@reduce(.And, Vec(i64, 3).initA(a3).approxFromA(f32, v1.data, 0)));
-    try testing.expect(!@reduce(.Or, Vec(i64, 3).initA(a4).approxFromA(f32, v1.data, 0)));
-    try testing.expect(!@reduce(.And, Vec(i64, 3).initA(a4).approxFromA(f32, v1.data, 1)));
-    try testing.expect(@reduce(.Or, Vec(i64, 3).initA(a4).approxFromA(f32, v1.data, 1)));
-    try testing.expect(@reduce(.And, Vec(i64, 3).initA(a4).approxFromA(f32, v1.data, 2)));
+    try testing.expect(@reduce(.And, Vec(i64, 3).initA(a3).approx(v1.data, 0)));
+    try testing.expect(!@reduce(.Or, Vec(i64, 3).initA(a4).approx(v1.data, 0)));
+    try testing.expect(!@reduce(.And, Vec(i64, 3).initA(a4).approx(v1.data, 1)));
+    try testing.expect(@reduce(.Or, Vec(i64, 3).initA(a4).approx(v1.data, 1)));
+    try testing.expect(@reduce(.And, Vec(i64, 3).initA(a4).approx(v1.data, 2)));
 
-    try testing.expect(@reduce(.And, Vec(f64, 3).initA(a1).approxFromA(i32, v6.data, 0.0000002)));
-    try testing.expect(!@reduce(.Or, Vec(f64, 3).initA(a2).approxFromA(i32, v6.data, 0.0000002)));
+    try testing.expect(@reduce(.And, Vec(f64, 3).initA(a1).approx(v6.data, 0.0000002)));
+    try testing.expect(!@reduce(.Or, Vec(f64, 3).initA(a2).approx(v6.data, 0.0000002)));
 
-    try testing.expect(@reduce(.And, Vec(i64, 3).initS(s5).approxFromS(f32, v1.data[0], 0)));
-    try testing.expect(!@reduce(.Or, Vec(i64, 3).initS(s6).approxFromS(f32, v1.data[0], 0)));
-    try testing.expect(@reduce(.And, Vec(i64, 3).initS(s6).approxFromS(f32, v1.data[0], 1)));
+    try testing.expect(@reduce(.And, Vec(i64, 3).initS(s5).approx(v1.data[0], 0)));
+    try testing.expect(!@reduce(.Or, Vec(i64, 3).initS(s6).approx(v1.data[0], 0)));
+    try testing.expect(@reduce(.And, Vec(i64, 3).initS(s6).approx(v1.data[0], 1)));
 
-    try testing.expect(@reduce(.And, Vec(f64, 3).initS(s1).approxFromS(i32, v6.data[0], 0.0000002)));
-    try testing.expect(@reduce(.And, Vec(f64, 3).initS(s2).approxFromS(i32, v6.data[0], 0.0000002)));
-    try testing.expect(!@reduce(.Or, Vec(f64, 3).initS(s3).approxFromS(i32, v6.data[0], 0.0000002)));
-    try testing.expect(!@reduce(.Or, Vec(f64, 3).initS(s4).approxFromS(i32, v6.data[0], 0.0000002)));
+    try testing.expect(@reduce(.And, Vec(f64, 3).initS(s1).approx(v6.data[0], 0.0000002)));
+    try testing.expect(@reduce(.And, Vec(f64, 3).initS(s2).approx(v6.data[0], 0.0000002)));
+    try testing.expect(!@reduce(.Or, Vec(f64, 3).initS(s3).approx(v6.data[0], 0.0000002)));
+    try testing.expect(!@reduce(.Or, Vec(f64, 3).initS(s4).approx(v6.data[0], 0.0000002)));
 }
 
 test "Dot product" {
