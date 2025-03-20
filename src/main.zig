@@ -31,99 +31,33 @@ pub fn main() !void {
     // const allocator = gpa.allocator();
 
     const iterations = 10_000_000_000;
-    {
-        const start = std.time.milliTimestamp();
-        const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-
-        var sum: f32 = 0.0;
-        for (0..iterations) |i| {
-            const v2 = Vec(f32, 3).initS(@floatFromInt(i % 128));
-            const v3 = v1.subV(v2);
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-        }
-        const end = std.time.milliTimestamp();
-        std.debug.print("subV: {d}, sum: {d}\n", .{ end - start, sum });
-    }
-
-    {
-        const start = std.time.milliTimestamp();
-        const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-
-        var sum: f32 = 0.0;
-        for (0..iterations) |i| {
-            const v2 = Vec(f32, 3).initS(@floatFromInt(i % 128));
-            const v3 = v1.sub(v2);
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-        }
-        const end = std.time.milliTimestamp();
-        std.debug.print("sub: {d}, sum: {d}\n", .{ end - start, sum });
-    }
-
-    {
-        const start = std.time.milliTimestamp();
-        const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-
-        var sum: f32 = 0.0;
-        for (0..iterations) |i| {
-            const v3 = v1.subA(@as([3]f32, @splat(@floatFromInt(i % 128))));
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-        }
-        const end = std.time.milliTimestamp();
-        std.debug.print("subA: {d}, sum: {d}\n", .{ end - start, sum });
-    }
-
-    {
-        const start = std.time.milliTimestamp();
-        const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-
-        var sum: f32 = 0.0;
-        for (0..iterations) |i| {
-            const v3 = v1.sub(@as([3]f32, @splat(@floatFromInt(i % 128))));
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-        }
-        const end = std.time.milliTimestamp();
-        std.debug.print("sub: {d}, sum: {d}\n", .{ end - start, sum });
-    }
-
-    {
-        const start = std.time.milliTimestamp();
-        const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-
-        var sum: f32 = 0.0;
-        for (0..iterations) |i| {
-            const v3 = v1.subS(@floatFromInt(i % 128));
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-        }
-        const end = std.time.milliTimestamp();
-        std.debug.print("subS: {d}, sum: {d}\n", .{ end - start, sum });
-    }
-
-    {
-        const start = std.time.milliTimestamp();
-        const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-
-        var sum: f32 = 0.0;
-        for (0..iterations) |i| {
-            const v3 = v1.sub(@as(f32, @floatFromInt(i % 128)));
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-        }
-        const end = std.time.milliTimestamp();
-        std.debug.print("sub: {d}, sum: {d}\n", .{ end - start, sum });
-    }
     // {
-    //     const start = std.time.milliTimestamp();
-    //     const v1 = Vec3(f32).initA(.{ 1.0, 2.0, 3.0 });
+    // const start = std.time.milliTimestamp();
+    // const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
     //
-    //     var sum: f32 = 0.0;
-    //     for (0..iterations) |i| {
-    //         const v2 = Vec3(f32).initS(@floatFromInt(i % 128));
-    //         // const v3 = v1.cross(v2);
-    //         const v3 = v1.as().subV(v2.as().*);
-    //         sum += @reduce(.Add, @as(@Vector(3, f32), v3.as().data));
-    //     }
-    //     const end = std.time.milliTimestamp();
-    //     std.debug.print("qpEngine: {d}, sum: {d}\n", .{ end - start, sum });
+    // var sum: f32 = 0.0;
+    // for (0..iterations) |i| {
+    // const v2 = Vec(f32, 3).initS(@floatFromInt(i % 128));
+    // const v3 = v1.subV(v2);
+    // sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
     // }
+    // const end = std.time.milliTimestamp();
+    // std.debug.print("subV: {d}, sum: {d}\n", .{ end - start, sum });
+    // }
+    {
+        const start = std.time.milliTimestamp();
+        const v1 = Vec3(f32).initA(.{ 1.0, 2.0, 3.0 });
+
+        var sum: f32 = 0.0;
+        for (0..iterations) |i| {
+            const v2 = Vec3(f32).initS(@floatFromInt(i % 128));
+            // const v3 = v1.cross(v2);
+            const v3 = try v2.as().div(v1.as().*);
+            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
+        }
+        const end = std.time.milliTimestamp();
+        std.debug.print("qpEngine: {d}, sum: {d}\n", .{ end - start, sum });
+    }
 
     std.debug.print("qpEngine: \n", .{});
 }
