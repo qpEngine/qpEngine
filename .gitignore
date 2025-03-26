@@ -2,6 +2,7 @@
 misc/
 *.copy.*
 *.temp*.*
+*.todo.*
 
 .zig-cache/
 zig-out/
