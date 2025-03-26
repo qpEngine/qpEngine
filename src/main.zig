@@ -31,33 +31,45 @@ pub fn main() !void {
     // const allocator = gpa.allocator();
 
     const iterations = 10_000_000_000;
-    // {
-    // const start = std.time.milliTimestamp();
-    // const v1 = Vec(f32, 3).initA(.{ 1.0, 2.0, 3.0 });
-    //
-    // var sum: f32 = 0.0;
-    // for (0..iterations) |i| {
-    // const v2 = Vec(f32, 3).initS(@floatFromInt(i % 128));
-    // const v3 = v1.subV(v2);
-    // sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
-    // }
-    // const end = std.time.milliTimestamp();
-    // std.debug.print("subV: {d}, sum: {d}\n", .{ end - start, sum });
-    // }
     {
         const start = std.time.milliTimestamp();
-        const v1 = Vec3(f32).initA(.{ 1.0, 2.0, 3.0 });
-
         var sum: f32 = 0.0;
         for (0..iterations) |i| {
-            const v2 = Vec3(f32).initS(@floatFromInt(i % 128));
-            // const v3 = v1.cross(v2);
-            const v3 = try v2.as().div(v1.as().*);
-            sum += @reduce(.Add, @as(@Vector(3, f32), v3.data));
+            var v1 = Vec(f32, 3).from(.{ i % 2 + 1, i % 3 + 1, i % 5 + 1 });
+            try v1.normalize();
+            // v1.normalize();
+            sum += @reduce(.Add, v1.as());
         }
+
         const end = std.time.milliTimestamp();
-        std.debug.print("qpEngine: {d}, sum: {d}\n", .{ end - start, sum });
+        std.debug.print("in place - time: {d}, sum: {d}\n", .{ end - start, sum });
     }
+    {
+        const start = std.time.milliTimestamp();
+        var sum: f32 = 0.0;
+        for (0..iterations) |i| {
+            var v1 = Vec(f32, 3).from(.{ i % 2, i % 3, i % 5 });
+            v1 = v1.normalized().?;
+            sum += @reduce(.Add, v1.as());
+        }
+
+        const end = std.time.milliTimestamp();
+        std.debug.print("re-set - time: {d}, sum: {d}\n", .{ end - start, sum });
+    }
+    // {
+    //     const start = std.time.milliTimestamp();
+    //     const v1 = Vec4(f32).initA(.{ 1.0, 2.0, 3.0, 4.0 });
+    //
+    //     var sum: f32 = 0.0;
+    //     for (0..iterations) |i| {
+    //         const v2 = Vec4(f32).initS(@floatFromInt(i % 128));
+    //         // const v3 = v1.cross(v2);
+    //         const v3 = try v2.as().div(v1.as());
+    //         sum += @reduce(.Add, v3.as());
+    //     }
+    //     const end = std.time.milliTimestamp();
+    //     std.debug.print("qpEngine: {d}, sum: {d}\n", .{ end - start, sum });
+    // }
 
     std.debug.print("qpEngine: \n", .{});
 }
@@ -72,3 +84,4 @@ const tests = std.testing;
 
 const Vec = qp.math.Vec;
 const Vec3 = qp.math.Vec3;
+const Vec4 = qp.math.Vec4;
