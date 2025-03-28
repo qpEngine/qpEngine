@@ -34,35 +34,38 @@ pub fn main() !void {
     {
         const start = std.time.milliTimestamp();
         var sum: f32 = 0.0;
+        const v2 = Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 });
         for (0..iterations) |i| {
-            var v1 = Vec(f32, 3).from(.{ i % 2 + 1, i % 3 + 1, i % 5 + 1 });
-            try v1.normalize();
-            // v1.normalize();
+            var v1 = Vector(f32, 3).from(.{ i % 2 + 1, i % 3 + 1, i % 5 + 1 });
+            // v1 = v1.normalized().?;
+            v1 = v1.summated(v2);
             sum += @reduce(.Add, v1.as());
         }
 
         const end = std.time.milliTimestamp();
-        std.debug.print("in place - time: {d}, sum: {d}\n", .{ end - start, sum });
+        std.debug.print("op  - time: {d}, sum: {d}\n", .{ end - start, sum });
     }
     {
         const start = std.time.milliTimestamp();
         var sum: f32 = 0.0;
+        const v2 = Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 });
         for (0..iterations) |i| {
-            var v1 = Vec(f32, 3).from(.{ i % 2, i % 3, i % 5 });
-            v1 = v1.normalized().?;
+            var v1 = Vector(f32, 3).from(.{ i % 2 + 1, i % 3 + 1, i % 5 + 1 });
+            // try v1.normalize();
+            v1 = v1.summated2(v2);
             sum += @reduce(.Add, v1.as());
         }
 
         const end = std.time.milliTimestamp();
-        std.debug.print("re-set - time: {d}, sum: {d}\n", .{ end - start, sum });
+        std.debug.print("op2 - time: {d}, sum: {d}\n", .{ end - start, sum });
     }
     // {
     //     const start = std.time.milliTimestamp();
-    //     const v1 = Vec4(f32).initA(.{ 1.0, 2.0, 3.0, 4.0 });
+    //     const v1 = Vector4(f32).initA(.{ 1.0, 2.0, 3.0, 4.0 });
     //
     //     var sum: f32 = 0.0;
     //     for (0..iterations) |i| {
-    //         const v2 = Vec4(f32).initS(@floatFromInt(i % 128));
+    //         const v2 = Vector4(f32).initS(@floatFromInt(i % 128));
     //         // const v3 = v1.cross(v2);
     //         const v3 = try v2.as().div(v1.as());
     //         sum += @reduce(.Add, v3.as());
@@ -82,6 +85,6 @@ const Regex = qp.util.Regex;
 const RegexMatch = qp.util.RegexMatch;
 const tests = std.testing;
 
-const Vec = qp.math.Vec;
-const Vec3 = qp.math.Vec3;
-const Vec4 = qp.math.Vec4;
+const Vector = qp.math.Vector;
+const Vector3 = qp.math.Vector3;
+const Vector4 = qp.math.Vector4;
