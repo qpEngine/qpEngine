@@ -29,10 +29,21 @@ pub fn build(b: *std.Build) void {
         });
         exe_mod.addImport("qp", qp_lib);
 
+        const zopengl = b.dependency("zopengl", .{});
+        exe_mod.addImport("zopengl", zopengl.module("root"));
+
+        const zglfw = b.dependency("zglfw", .{});
+        exe_mod.addImport("zglfw", zglfw.module("root"));
+
         const exe = b.addExecutable(.{
             .name = "qpEngine",
             .root_module = exe_mod,
         });
+
+        if (target.result.os.tag != .emscripten) {
+            exe.linkLibrary(zglfw.artifact("glfw"));
+        }
+
         b.installArtifact(exe);
 
         // run step
@@ -56,7 +67,7 @@ pub fn build(b: *std.Build) void {
     const run_regex_unit_tests = b.addRunArtifact(regex_lib_unit_test);
 
     const vec_lib_unit_test = b.addTest(.{
-        .root_source_file = b.path("lib/qp/math/vec.zig"),
+        .root_source_file = b.path("lib/qp/math/vector.zig"),
         // .root_module = regex_mod,
     });
     const run_vec_unit_tests = b.addRunArtifact(vec_lib_unit_test);
