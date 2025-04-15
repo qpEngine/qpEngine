@@ -11,6 +11,16 @@
             .url = "https://github.com/qaptoR-support/pcre2/archive/refs/tags/zig0.14.tar.gz",
             .hash = "N-V-__8AAN0G3wA6horCZYad-eyYofHQ4Q9D7m9nSWiCqbXb",
         },
+
+        .zglfw = .{
+            .url = "git+https://github.com/zig-gamedev/zglfw#dcb1dae7d4a90f88b70dbae73300ab9b19fb250c",
+            .hash = "zglfw-0.10.0-dev-zgVDNJmZIQCIiO_94Sp5jqrPtz4Eumk3bDcxS7dSZfIj",
+        },
+
+        .zopengl = .{
+            .url = "git+https://github.com/zig-gamedev/zopengl#2c2eb79283b7c1149da9eae6948dedb072b5d058",
+            .hash = "zopengl-0.6.0-dev-5-tnzzFUCACS5Ongbip8bl028sYtkNnzNSjhsfRj3yk1",
+        },
     },
 
     .paths = .{
