@@ -30,124 +30,42 @@ pub fn main() !void {
     // defer std.debug.assert(gpa.deinit() != .leak);
     // const allocator = gpa.allocator();
 
-    const winHeight = 600;
-    const winWidth = 800;
-
     try glfw.init();
     defer glfw.terminate();
 
-    const gl_major = 3;
-    const gl_minor = 3;
-
-    // Choose the set of features that we want to use from OpenGL
     glfw.windowHint(.context_version_major, gl_major);
     glfw.windowHint(.context_version_minor, gl_minor);
     glfw.windowHint(.opengl_profile, .opengl_core_profile);
     // glfw.windowHint(.opengl_forward_compat, true);  //  NOTE: necessary for macOS
 
-    // create a window and its OpenGL context
     const window = try glfw.Window.create(winWidth, winHeight, "qpEngine", null);
     defer window.destroy();
 
     glfw.makeContextCurrent(window); // make our window the current context of the current thread
-
-    // necessary for zig to load the OpenGL functions??
     try zopengl.loadCoreProfile(glfw.getProcAddress, gl_major, gl_minor);
-
-    // set the viewport to the size of the window, and a callback to update the viewport on window resize
     gl.viewport(0, 0, winWidth, winHeight);
     _ = glfw.setFramebufferSizeCallback(window, framebufferSizeCallback);
 
-    // glfw.swapInterval(1);
-
-    var shaderProgram: gl.Uint = undefined;
-    {
-        var success: gl.Int = 0;
-        var infoLog: [512]u8 = undefined;
-
-        // create vertex shader
-        var vertexShader: gl.Uint = undefined;
-        vertexShader = gl.createShader(gl.VERTEX_SHADER);
-
-        gl.shaderSource(vertexShader, 1, &vertexShaderSource, null);
-        gl.compileShader(vertexShader);
-
-        gl.getShaderiv(vertexShader, gl.COMPILE_STATUS, &success);
-        if (success == 0) {
-            gl.getShaderInfoLog(vertexShader, 512, null, &infoLog[0]);
-            std.debug.print("ERROR::SHADER::VERTEX::COMPILATION_FAILED\n{s}\n", .{infoLog[0..]});
-        }
-
-        // create fragment shader
-        var fragmentShader: gl.Uint = undefined;
-        fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
-        gl.shaderSource(fragmentShader, 1, &fragmentShaderSource, null);
-        gl.compileShader(fragmentShader);
-
-        gl.getShaderiv(fragmentShader, gl.COMPILE_STATUS, &success);
-        if (success == 0) {
-            gl.getShaderInfoLog(fragmentShader, 512, null, &infoLog[0]);
-            std.debug.print("ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n{s}\n", .{infoLog[0..]});
-        }
-
-        // create shader program
-        shaderProgram = gl.createProgram();
-        gl.attachShader(shaderProgram, vertexShader);
-        gl.attachShader(shaderProgram, fragmentShader);
-        gl.linkProgram(shaderProgram);
-
-        gl.getProgramiv(shaderProgram, gl.LINK_STATUS, &success);
-        if (success == 0) {
-            gl.getProgramInfoLog(shaderProgram, 512, null, &infoLog[0]);
-            std.debug.print("ERROR::SHADER::PROGRAM::LINKING_FAILED\n{s}\n", .{infoLog[0..]});
-        }
-
-        gl.deleteShader(vertexShader);
-        gl.deleteShader(fragmentShader);
-    }
-    defer gl.deleteProgram(shaderProgram);
-
-    const vertices = [_]f32{
-        0.5, 0.5, 0.0, // top right
-        0.5, -0.5, 0.0, // bottom right
-        -0.5, -0.5, 0.0, // bottom left
-        -0.5, 0.5, 0.0, // top left
-    };
-
-    const indices = [_]u32{
-        0, 1, 3, // first triangle
-        1, 2, 3, // second triangle
-    };
-
-    // create vertex array object
-    var VAO: gl.Uint = undefined;
-    var VBO: gl.Uint = undefined;
-    var EBO: gl.Uint = undefined;
-    {
-        gl.genVertexArrays(1, &VAO);
-        gl.genBuffers(1, &VBO);
-        gl.genBuffers(1, &EBO);
-
-        gl.bindVertexArray(VAO);
-        gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
-        gl.bufferData(gl.ARRAY_BUFFER, vertices.len * @sizeOf(f32), &vertices[0], gl.STATIC_DRAW);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices.len * @sizeOf(u32), &indices[0], gl.STATIC_DRAW);
-
-        gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null);
-        gl.enableVertexAttribArray(0);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0); // unbind the buffer
-        gl.bindBuffer(gl.ARRAY_BUFFER, 0); // unbind the buffer
-        gl.bindVertexArray(0); // unbind the VAO
-    }
-    defer gl.deleteBuffers(1, &EBO);
-    defer gl.deleteBuffers(1, &VBO);
+    var VAO: gl.Uint = tlib.createVAO(&vertices);
     defer gl.deleteVertexArrays(1, &VAO);
 
-    // gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
-    gl.polygonMode(gl.FRONT_AND_BACK, gl.LINE);
+    var wEBO: gl.Uint = tlib.createEBO(&whiteIndices);
+    defer gl.deleteBuffers(1, &wEBO);
+
+    var bEBO: gl.Uint = tlib.createEBO(&blackIndices);
+    defer gl.deleteBuffers(1, &bEBO);
+
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null);
+    gl.enableVertexAttribArray(0);
+
+    gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
+    // gl.polygonMode(gl.FRONT_AND_BACK, gl.LINE);
+
+    const wSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &wFragmentShaderSource);
+    defer gl.deleteProgram(wSP);
+
+    const bSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &bFragmentShaderSource);
+    defer gl.deleteProgram(bSP);
 
     // render loop
     while (!window.shouldClose()) {
@@ -156,11 +74,15 @@ pub fn main() !void {
         gl.clearColor(0.16, 0.12, 0.07, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        gl.useProgram(shaderProgram);
+        gl.useProgram(wSP);
         gl.bindVertexArray(VAO);
-        // gl.drawArrays(gl.TRIANGLES, 0, 3);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
-        gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wEBO);
+        gl.drawElements(gl.TRIANGLES, whiteIndices.len, gl.UNSIGNED_INT, null);
+
+        // gl.useProgram(bSP);
+        // gl.bindVertexArray(VAO);
+        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bEBO);
+        // gl.drawElements(gl.TRIANGLES, blackIndices.len, gl.UNSIGNED_INT, null);
 
         window.swapBuffers();
         glfw.pollEvents();
@@ -179,6 +101,46 @@ fn framebufferSizeCallback(_: *glfw.Window, width: c_int, height: c_int) callcon
     gl.viewport(0, 0, width, height);
 }
 
+const gl_major = 3;
+const gl_minor = 3;
+
+const winHeight = 600;
+const winWidth = 800;
+// const sqh = 200 / (winHeight / 2);
+// const sqw = 200 / (winWidth / 2);
+const sqh = 0.5;
+const sqw = 0.5;
+
+const vertices = [_]f32{
+    -sqw, sqh, 0.0, // top left   0
+    0.0, sqh, 0.0, // top center  1
+    sqw, sqh, 0.0, // top right   2
+    //
+    -sqw, 0.0, 0.0, // center left  3
+    0.0, 0.0, 0.0, // center center 4
+    sqw, 0.0, 0.0, // center right  5
+    //
+    -sqw, -sqh, 0.0, // bottom left  6
+    0.0, -sqh, 0.0, // bottom center 7
+    sqw, -sqh, 0.0, // bottom right  8
+};
+
+const whiteIndices = [_]u32{
+    0, 1, 4,
+    3, 0, 4,
+    //
+    4, 5, 8,
+    7, 4, 8,
+};
+
+const blackIndices = [_]u32{
+    1, 2, 5,
+    4, 1, 5,
+    //
+    3, 4, 7,
+    6, 3, 7,
+};
+
 const vertexShaderSource: [*c]const u8 =
     \\#version 330 core
     \\layout (location = 0) in vec3 aPos;
@@ -187,11 +149,19 @@ const vertexShaderSource: [*c]const u8 =
     \\}
 ;
 
-const fragmentShaderSource: [*c]const u8 =
+const wFragmentShaderSource: [*c]const u8 =
     \\#version 330 core
     \\out vec4 FragColor;
     \\void main() {
-    \\    FragColor = vec4(0.31, 0.22, 0.1, 1.0);
+    \\    FragColor = vec4(0.6, 0.46, 0.25, 1.0);
+    \\}
+;
+
+const bFragmentShaderSource: [*c]const u8 =
+    \\#version 330 core
+    \\out vec4 FragColor;
+    \\void main() {
+    \\    FragColor = vec4(0.31, 0.24, 0.13, 1.0);
     \\}
 ;
 
@@ -201,7 +171,7 @@ const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
 const gl = zopengl.bindings;
 
-const tlib = @import("templib.zig").createShaderProgram;
+const tlib = @import("templib.zig");
 
 const Allocator = std.mem.Allocator;
 const Regex = qp.util.Regex;
