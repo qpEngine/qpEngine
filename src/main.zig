@@ -46,8 +46,15 @@ pub fn main() !void {
     gl.viewport(0, 0, winWidth, winHeight);
     _ = glfw.setFramebufferSizeCallback(window, framebufferSizeCallback);
 
-    var VAO: gl.Uint = tlib.createVAO(&vertices);
+    var VAO: gl.Uint = tlib.createVAO();
     defer gl.deleteVertexArrays(1, &VAO);
+
+    var VBO: gl.Uint = tlib.createVBO(&vertices);
+    defer gl.deleteBuffers(1, &VBO);
+
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null);
+    gl.enableVertexAttribArray(0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
 
     var wEBO: gl.Uint = tlib.createEBO(&whiteIndices);
     defer gl.deleteBuffers(1, &wEBO);
@@ -55,17 +62,20 @@ pub fn main() !void {
     var bEBO: gl.Uint = tlib.createEBO(&blackIndices);
     defer gl.deleteBuffers(1, &bEBO);
 
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null);
-    gl.enableVertexAttribArray(0);
-
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
     // gl.polygonMode(gl.FRONT_AND_BACK, gl.LINE);
 
-    const wSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &wFragmentShaderSource);
-    defer gl.deleteProgram(wSP);
+    // const wSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &wFragmentShaderSource);
+    // defer gl.deleteProgram(wSP);
 
-    const bSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &bFragmentShaderSource);
-    defer gl.deleteProgram(bSP);
+    var whiteShader = try Shader.init("src/shaders/main.vert", "src/shaders/white.frag", std.heap.page_allocator);
+    defer whiteShader.delete();
+
+    // const bSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &bFragmentShaderSource);
+    // defer gl.deleteProgram(bSP);
+
+    var blackShader = try Shader.init("src/shaders/main.vert", "src/shaders/black.frag", std.heap.page_allocator);
+    defer blackShader.delete();
 
     // render loop
     while (!window.shouldClose()) {
@@ -74,15 +84,27 @@ pub fn main() !void {
         gl.clearColor(0.16, 0.12, 0.07, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        gl.useProgram(wSP);
         gl.bindVertexArray(VAO);
+
+        const timeValue: f64 = glfw.getTime();
+        const oscValue: f64 = (@sin(timeValue) / 2.0) + 0.5; // oscillates between 0.0 and 1.0
+
+        // const wColorLocation: gl.Int = gl.getUniformLocation(wSP, "wColor");
+        // gl.useProgram(wSP);
+        whiteShader.use();
+        // white color  = vec4(0.6, 0.46, 0.25, 1.0);
+        whiteShader.setFloat4("wColor", 0.6, 0.46, @as(f32, @floatCast(oscValue)), 1.0);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wEBO);
         gl.drawElements(gl.TRIANGLES, whiteIndices.len, gl.UNSIGNED_INT, null);
 
+        // const bColorLocation: gl.Int = gl.getUniformLocation(bSP, "bColor");
         // gl.useProgram(bSP);
+        blackShader.use();
+        // black color = vec4(0.31, 0.24, 0.13, 1.0);
+        whiteShader.setFloat4("bColor", 0.31, @as(f32, @floatCast(oscValue)), 0.13, 1.0);
         // gl.bindVertexArray(VAO);
-        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bEBO);
-        // gl.drawElements(gl.TRIANGLES, blackIndices.len, gl.UNSIGNED_INT, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bEBO);
+        gl.drawElements(gl.TRIANGLES, blackIndices.len, gl.UNSIGNED_INT, null);
 
         window.swapBuffers();
         glfw.pollEvents();
@@ -106,10 +128,10 @@ const gl_minor = 3;
 
 const winHeight = 600;
 const winWidth = 800;
-// const sqh = 200 / (winHeight / 2);
-// const sqw = 200 / (winWidth / 2);
-const sqh = 0.5;
-const sqw = 0.5;
+const sqh = 200.0 / @as(comptime_float, @floatFromInt(winHeight / 2));
+const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
+// const sqh = 0.5;
+// const sqw = 0.5;
 
 const vertices = [_]f32{
     -sqw, sqh, 0.0, // top left   0
@@ -152,16 +174,20 @@ const vertexShaderSource: [*c]const u8 =
 const wFragmentShaderSource: [*c]const u8 =
     \\#version 330 core
     \\out vec4 FragColor;
+    \\uniform vec4 wColor;
     \\void main() {
-    \\    FragColor = vec4(0.6, 0.46, 0.25, 1.0);
+    \\    //FragColor = vec4(0.6, 0.46, 0.25, 1.0);
+    \\    FragColor = wColor;
     \\}
 ;
 
 const bFragmentShaderSource: [*c]const u8 =
     \\#version 330 core
     \\out vec4 FragColor;
+    \\uniform vec4 bColor;
     \\void main() {
-    \\    FragColor = vec4(0.31, 0.24, 0.13, 1.0);
+    \\    //FragColor = vec4(0.31, 0.24, 0.13, 1.0);
+    \\    FragColor = bColor;
     \\}
 ;
 
@@ -172,6 +198,7 @@ const zopengl = @import("zopengl");
 const gl = zopengl.bindings;
 
 const tlib = @import("templib.zig");
+const Shader = @import("shader.zig").Shader;
 
 const Allocator = std.mem.Allocator;
 const Regex = qp.util.Regex;
