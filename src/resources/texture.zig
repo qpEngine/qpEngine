@@ -28,9 +28,10 @@
 pub const Texture = struct {
     ID: gl.Uint,
 
-    pub fn init(path: [:0]const u8, allocator: Allocator) !Texture {
-        stbi.init(allocator);
-        defer stbi.deinit();
+    // pub fn init(path: [:0]const u8, _allocator: Allocator) !Texture {
+    pub fn init(path: [:0]const u8) !Texture {
+        // stbi.init(allocator);
+        // defer stbi.deinit();
 
         var texture: Texture = undefined;
         gl.genTextures(1, &texture.ID);

@@ -33,6 +33,9 @@ pub fn main() !void {
     try glfw.init();
     defer glfw.terminate();
 
+    stbi.init(std.heap.page_allocator);
+    defer stbi.deinit();
+
     glfw.windowHint(.context_version_major, gl_major);
     glfw.windowHint(.context_version_minor, gl_minor);
     glfw.windowHint(.opengl_profile, .opengl_core_profile);
@@ -60,16 +63,13 @@ pub fn main() !void {
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
 
-    // only unbind the vbo or vao when explicitly necessary
-    // because they need to be rebound to a new vbo or vao anyway if we are changing them
-    gl.bindBuffer(gl.ARRAY_BUFFER, 0);
-
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
 
     var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     defer shader.deinit();
 
-    const texture = try Texture.init("misc/textures/wall.jpg", std.heap.page_allocator);
+    // const texture = try Texture.init("misc/textures/wall.jpg", std.heap.page_allocator);
+    const texture = try Texture.init("misc/textures/wall.jpg");
 
     // render loop
     while (!window.shouldClose()) {
@@ -113,11 +113,11 @@ const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
 // const sqw = 0.5;
 
 const vertices = [_]f32{
-    // positions      // texture coords
-    0.5,  0.5,  0.0, 1.0, 1.0,
-    0.5,  -0.5, 0.0, 1.0, 0.0,
-    -0.5, -0.5, 0.0, 0.0, 0.0,
-    -0.5, 0.5,  0.0, 0.0, 1.0,
+    // positions     // texture coords
+    sqw,  sqh,  0.0, 1.0, 1.0,
+    sqw,  -sqh, 0.0, 1.0, 0.0,
+    -sqw, -sqh, 0.0, 0.0, 0.0,
+    -sqw, sqh,  0.0, 0.0, 1.0,
 };
 
 const indices = [_]u32{
