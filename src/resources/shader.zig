@@ -2,7 +2,6 @@
 //
 //
 //
-//
 //    I. qpEngine
 //                                                         ,,
 //                      `7MM"""YMM                         db
@@ -124,31 +123,7 @@ pub const Shader = struct {
 };
 
 const std = @import("std");
-const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
 const gl = zopengl.bindings;
 
 const Allocator = std.mem.Allocator;
-
-fn loadData(allocator: Allocator, filename: []const u8) !std.ArrayList(std.ArrayList(i32)) {
-    const file = try std.fs.cwd().openFile(filename, .{});
-    defer file.close();
-    const content = try file.readToEndAlloc(allocator, std.math.maxInt(u64));
-    defer allocator.free(content);
-
-    var data = std.ArrayList(std.ArrayList(i32)).init(allocator);
-
-    // var rows = std.mem.tokenizeSequence(u8, content, "\r\n");
-    var rows = std.mem.tokenizeSequence(u8, content, "\n");
-    while (rows.next()) |row| {
-        var row_data = try std.ArrayList(i32).initCapacity(allocator, 2);
-        var cols = std.mem.splitSequence(u8, row, "   ");
-
-        while (cols.next()) |col| {
-            try row_data.append(try std.fmt.parseInt(i32, col, 10));
-        }
-        try data.append(row_data);
-    }
-
-    return data;
-}

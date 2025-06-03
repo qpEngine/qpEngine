@@ -12,14 +12,29 @@
             .hash = "N-V-__8AAN0G3wA6horCZYad-eyYofHQ4Q9D7m9nSWiCqbXb",
         },
 
+        .zopengl = .{
+            .url = "git+https://github.com/zig-gamedev/zopengl#2c2eb79283b7c1149da9eae6948dedb072b5d058",
+            .hash = "zopengl-0.6.0-dev-5-tnzzFUCACS5Ongbip8bl028sYtkNnzNSjhsfRj3yk1",
+        },
+
         .zglfw = .{
             .url = "git+https://github.com/zig-gamedev/zglfw#dcb1dae7d4a90f88b70dbae73300ab9b19fb250c",
             .hash = "zglfw-0.10.0-dev-zgVDNJmZIQCIiO_94Sp5jqrPtz4Eumk3bDcxS7dSZfIj",
         },
 
-        .zopengl = .{
-            .url = "git+https://github.com/zig-gamedev/zopengl#2c2eb79283b7c1149da9eae6948dedb072b5d058",
-            .hash = "zopengl-0.6.0-dev-5-tnzzFUCACS5Ongbip8bl028sYtkNnzNSjhsfRj3yk1",
+        .zsdl = .{
+            .url = "git+https://github.com/zig-gamedev/zsdl#89c1fe2d7ef5020c68e71ac574195f09fc949cce",
+            .hash = "zsdl-0.4.0-dev-rFpjE5FXWQAHcbsSHDjFtbTkruSgvRVYOae6x8RXCnoM",
+        },
+
+        .zstbi = .{
+            .url = "git+https://github.com/zig-gamedev/zstbi#094c4bba5cdbec167d3f6aaa98cccccd5c99145f",
+            .hash = "zstbi-0.11.0-dev-L0Ea_-eVBwCl8RYA98PhLDw3Fhw5k7FJOHSMDKWDOvqx",
+        },
+
+        .zgui = .{
+            .url = "git+https://github.com/zig-gamedev/zgui#21dcc288ac5ee70b1fca789d53a06d5c49d51e5e",
+            .hash = "zgui-0.6.0-dev--L6sZKTBaADLHp09LtUUifdfFpsczwbnyH7r2ajfVPuJ",
         },
     },
 

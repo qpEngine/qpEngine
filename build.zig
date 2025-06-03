@@ -6,15 +6,15 @@ pub fn build(b: *std.Build) void {
 
     const build_editor = b.option(bool, "editor", "Build the editor") orelse false;
 
-    // PCRE2 Regex Library
-    const pcre2_8_dep = b.dependency("pcre2", .{
+    // qpEngine Library
+    const qp_lib = b.addModule("qpEngine", .{
+        .root_source_file = b.path("lib/qp/qp.zig"),
         .target = target,
         .optimize = optimize,
     });
 
-    // qpEngine Library
-    const qp_lib = b.addModule("qpEngine", .{
-        .root_source_file = b.path("lib/qp/qp.zig"),
+    // PCRE2 Regex Library
+    const pcre2_8_dep = b.dependency("pcre2", .{
         .target = target,
         .optimize = optimize,
     });
@@ -34,6 +34,17 @@ pub fn build(b: *std.Build) void {
 
         const zglfw = b.dependency("zglfw", .{});
         exe_mod.addImport("zglfw", zglfw.module("root"));
+
+        const zsdl = b.dependency("zsdl", .{});
+        exe_mod.addImport("zsdl2", zsdl.module("zsdl2"));
+        exe_mod.addImport("zsdl2_ttf", zsdl.module("zsdl2_ttf"));
+        exe_mod.addImport("zsdl2_image", zsdl.module("zsdl2_image"));
+
+        const zstbi = b.dependency("zstbi", .{});
+        exe_mod.addImport("zstbi", zstbi.module("root"));
+
+        const zgui = b.dependency("zgui", .{});
+        exe_mod.addImport("zgui", zgui.module("root"));
 
         const exe = b.addExecutable(.{
             .name = "qpEngine",
