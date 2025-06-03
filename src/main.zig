@@ -70,7 +70,10 @@ pub fn main() !void {
     var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     defer shader.deinit();
 
+    Texture.setParams(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.LINEAR, gl.LINEAR);
     const floorTexture = try Texture.init("misc/textures/wall.jpg", false);
+
+    Texture.setParams(gl.REPEAT, gl.REPEAT, gl.LINEAR, gl.LINEAR);
     const faceTexture = try Texture.init("misc/textures/awesomeface.png", true);
 
     // render loop
@@ -120,14 +123,19 @@ const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
 // const sqh = 0.5;
 // const sqw = 0.5;
 
+// zig fmt: off
 const vertices = [_]f32{
     // positions from top left CCW, coords from top right CW
     // pos           // coords // colors
-    sqw,  sqh,  0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
-    sqw,  -sqh, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0,
-    -sqw, -sqh, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
-    -sqw, sqh,  0.0, 0.0, 0.0, 1.0, 1.0, 0.0,
-};
+     sqw,  sqh, 0.0, 2.0, 2.0, 1.0, 0.0, 0.0, // top right
+     sqw, -sqh, 0.0, 2.0, 0.0, 0.0, 1.0, 0.0, // bottom right
+    -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, // bottom left
+    -sqw,  sqh, 0.0, 0.0, 2.0, 1.0, 1.0, 0.0, // top left
+    //  sqw,  sqh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, // top right
+    //  sqw, -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // bottom right
+    // -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, // bottom left
+    // -sqw,  sqh, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, // top left
+}; // zig fmt: on
 
 const indices = [_]u32{
     0, 1, 3, // first triangle
