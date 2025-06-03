@@ -25,6 +25,12 @@
 //
 //
 
+var wrap_s: gl.Int = gl.REPEAT;
+var wrap_t: gl.Int = gl.REPEAT;
+var min_filter: gl.Int = gl.LINEAR_MIPMAP_LINEAR;
+var mag_filter: gl.Int = gl.LINEAR;
+var flip_vertically: bool = true;
+
 pub const Texture = struct {
     ID: gl.Uint,
 
@@ -33,11 +39,12 @@ pub const Texture = struct {
         gl.genTextures(1, &texture.ID);
         gl.bindTexture(gl.TEXTURE_2D, texture.ID);
 
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap_s);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap_t);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, min_filter);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, mag_filter);
 
+        stbi.setFlipVerticallyOnLoad(flip_vertically);
         var image: stbi.Image = stbi.Image.loadFromFile(path, 0) catch |err| {
             std.debug.print("Failed to load texture\n{any}\n", .{err});
             return err;
@@ -57,6 +64,17 @@ pub const Texture = struct {
         image.deinit();
 
         return texture;
+    }
+
+    pub fn setParams(s: gl.Int, t: gl.Int, min: gl.Int, mag: gl.Int) void {
+        wrap_s = s;
+        wrap_t = t;
+        min_filter = min;
+        mag_filter = mag;
+    }
+
+    pub fn setFlipVertically(flip: bool) void {
+        flip_vertically = flip;
     }
 };
 
