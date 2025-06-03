@@ -88,6 +88,8 @@ pub fn main() !void {
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, faceTexture.ID);
 
+        shader.setFloat("mixFactor", mixFactor);
+
         shader.use();
         shader.setInt("floorTexture", 0);
         shader.setInt("faceTexture", 1);
@@ -105,11 +107,23 @@ fn processInput(window: *glfw.Window) void {
     if (glfw.getKey(window, .escape) == glfw.Action.press) {
         glfw.setWindowShouldClose(window, true);
     }
+
+    if (glfw.getKey(window, .up) == glfw.Action.press) {
+        mixFactor += 0.01;
+        if (mixFactor >= 1.0) mixFactor = 1.0;
+    }
+
+    if (glfw.getKey(window, .down) == glfw.Action.press) {
+        mixFactor -= 0.01;
+        if (mixFactor <= 0.0) mixFactor = 0.0;
+    }
 }
 
 fn framebufferSizeCallback(_: *glfw.Window, width: c_int, height: c_int) callconv(.c) void {
     gl.viewport(0, 0, width, height);
 }
+
+var mixFactor: f32 = 0.2; // used in the fragment shader to mix the two textures
 
 const gl_major = 3;
 const gl_minor = 3;
