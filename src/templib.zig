@@ -38,6 +38,7 @@ pub fn createVBO(vertices: []const f32) gl.Uint {
     gl.genBuffers(1, &VBO);
     gl.bindBuffer(gl.ARRAY_BUFFER, VBO);
     gl.bufferData(gl.ARRAY_BUFFER, @as(isize, @intCast(vertices.len)) * @sizeOf(f32), &vertices[0], gl.STATIC_DRAW);
+    // gl.bindBuffer(gl.ARRAY_BUFFER, 0);
     return VBO;
 }
 
@@ -46,11 +47,10 @@ pub fn createEBO(indices: []const u32) gl.Uint {
     gl.genBuffers(1, &EBO);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, @as(isize, @intCast(indices.len)) * @sizeOf(u32), &indices[0], gl.STATIC_DRAW);
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
+    // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
     return EBO;
 }
 
 const std = @import("std");
-const glfw = @import("zglfw");
 const zopengl = @import("zopengl");
 const gl = zopengl.bindings;
