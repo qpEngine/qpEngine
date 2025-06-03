@@ -28,7 +28,7 @@
 pub const Texture = struct {
     ID: gl.Uint,
 
-    pub fn init(path: [:0]const u8) !Texture {
+    pub fn init(path: [:0]const u8, hasAlpha: bool) !Texture {
         var texture: Texture = undefined;
         gl.genTextures(1, &texture.ID);
         gl.bindTexture(gl.TEXTURE_2D, texture.ID);
@@ -49,7 +49,7 @@ pub const Texture = struct {
             @as(gl.Int, @intCast(image.width)),
             @as(gl.Int, @intCast(image.height)),
             0,
-            gl.RGB,
+            if (hasAlpha) gl.RGBA else gl.RGB,
             gl.UNSIGNED_BYTE,
             @as(?*anyopaque, @ptrCast(image.data)),
         );

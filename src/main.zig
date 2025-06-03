@@ -70,7 +70,8 @@ pub fn main() !void {
     var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     defer shader.deinit();
 
-    const texture = try Texture.init("misc/textures/wall.jpg");
+    const floorTexture = try Texture.init("misc/textures/wall.jpg", false);
+    const faceTexture = try Texture.init("misc/textures/awesomeface.png", true);
 
     // render loop
     while (!window.shouldClose()) {
@@ -79,10 +80,16 @@ pub fn main() !void {
         gl.clearColor(0.16, 0.12, 0.07, 1.0); // background color
         gl.clear(gl.COLOR_BUFFER_BIT);
 
-        gl.bindTexture(gl.TEXTURE_2D, texture.ID);
+        gl.bindVertexArray(VAO);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, floorTexture.ID);
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, faceTexture.ID);
 
         shader.use();
-        gl.bindVertexArray(VAO);
+        shader.setInt("floorTexture", 0);
+        shader.setInt("faceTexture", 1);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
         gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
 
@@ -114,11 +121,12 @@ const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
 // const sqw = 0.5;
 
 const vertices = [_]f32{
+    // positions from top left CCW, coords from top right CW
     // pos           // coords // colors
-    sqw,  sqh,  0.0, 1.0, 1.0, 1.0, 0.0, 0.0,
-    sqw,  -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,
-    -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-    -sqw, sqh,  0.0, 0.0, 1.0, 1.0, 1.0, 0.0,
+    sqw,  sqh,  0.0, 1.0, 0.0, 1.0, 0.0, 0.0,
+    sqw,  -sqh, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0,
+    -sqw, -sqh, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+    -sqw, sqh,  0.0, 0.0, 0.0, 1.0, 1.0, 0.0,
 };
 
 const indices = [_]u32{
