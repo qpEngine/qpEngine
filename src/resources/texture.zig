@@ -28,7 +28,10 @@
 pub const Texture = struct {
     ID: gl.Uint,
 
-    pub fn init() !Texture {
+    pub fn init(path: [:0]const u8, allocator: Allocator) !Texture {
+        stbi.init(allocator);
+        defer stbi.deinit();
+
         var texture: Texture = undefined;
         gl.genTextures(1, &texture.ID);
         gl.bindTexture(gl.TEXTURE_2D, texture.ID);
@@ -38,16 +41,24 @@ pub const Texture = struct {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-        var width: gl.Int = undefined;
-        var height: gl.Int = undefined;
-        var nrChannels: gl.Int = undefined;
-        const image: stbi.Image = stbi.loadFromFile("misc/textures/wall.jpg", &width, &height, &nrChannels, 0) catch |err| {
+        var image: stbi.Image = stbi.Image.loadFromFile(path, 0) catch |err| {
             std.debug.print("Failed to load texture\n{any}\n", .{err});
-        } else {
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, width, height, 0, gl.RGB, gl.UNSIGNED_BYTE, data);
-            gl.generateMipmap(gl.TEXTURE_2D);
-        }
-        stbi.image_free(data);
+            return err;
+        };
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGB,
+            @as(gl.Int, @intCast(image.width)),
+            @as(gl.Int, @intCast(image.height)),
+            0,
+            gl.RGB,
+            gl.UNSIGNED_BYTE,
+            @as(?*anyopaque, @ptrCast(image.data)),
+        );
+        gl.generateMipmap(gl.TEXTURE_2D);
+        image.deinit();
+
         return texture;
     }
 };

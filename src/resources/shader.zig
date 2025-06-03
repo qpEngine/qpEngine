@@ -101,7 +101,7 @@ pub const Shader = struct {
         gl.useProgram(self.ID);
     }
 
-    pub fn delete(self: *Shader) void {
+    pub fn deinit(self: *Shader) void {
         gl.deleteProgram(self.ID);
     }
 

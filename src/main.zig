@@ -52,26 +52,24 @@ pub fn main() !void {
     var VBO: gl.Uint = tlib.createVBO(&vertices);
     defer gl.deleteBuffers(1, &VBO);
 
+    var EBO: gl.Uint = tlib.createEBO(&indices);
+    defer gl.deleteBuffers(1, &EBO);
+
     gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), null);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), 3 * @sizeOf(f32));
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
+
+    // only unbind the vbo or vao when explicitly necessary
+    // because they need to be rebound to a new vbo or vao anyway if we are changing them
     gl.bindBuffer(gl.ARRAY_BUFFER, 0);
 
-    // var wEBO: gl.Uint = tlib.createEBO(&whiteIndices);
-    // defer gl.deleteBuffers(1, &wEBO);
-    //
-    // var bEBO: gl.Uint = tlib.createEBO(&blackIndices);
-    // defer gl.deleteBuffers(1, &bEBO);
-
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
-    // gl.polygonMode(gl.FRONT_AND_BACK, gl.LINE);
 
-    // var whiteShader = try Shader.init("src/shaders/main.vert", "src/shaders/white.frag", std.heap.page_allocator);
-    // defer whiteShader.delete();
-    //
-    // var blackShader = try Shader.init("src/shaders/main.vert", "src/shaders/black.frag", std.heap.page_allocator);
-    // defer blackShader.delete();
+    var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
+    defer shader.deinit();
+
+    const texture = try Texture.init("misc/textures/wall.jpg", std.heap.page_allocator);
 
     // render loop
     while (!window.shouldClose()) {
@@ -80,20 +78,12 @@ pub fn main() !void {
         gl.clearColor(0.16, 0.12, 0.07, 1.0); // background color
         gl.clear(gl.COLOR_BUFFER_BIT);
 
+        gl.bindTexture(gl.TEXTURE_2D, texture.ID);
+
+        shader.use();
         gl.bindVertexArray(VAO);
-
-        const timeValue: f64 = glfw.getTime();
-        const oscValue: f64 = (@sin(timeValue) / 2.0) + 0.5; // oscillates between 0.0 and 1.0
-
-        // whiteShader.use();
-        // whiteShader.setFloat4("wColor", 0.6, 0.46, @as(f32, @floatCast(oscValue)), 1.0);
-        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wEBO);
-        // gl.drawElements(gl.TRIANGLES, whiteIndices.len, gl.UNSIGNED_INT, null);
-
-        // blackShader.use();
-        // blackShader.setFloat4("bColor", 0.31, @as(f32, @floatCast(oscValue)), 0.13, 1.0);
-        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bEBO);
-        // gl.drawElements(gl.TRIANGLES, blackIndices.len, gl.UNSIGNED_INT, null);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
+        gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
 
         window.swapBuffers();
         glfw.pollEvents();
@@ -130,35 +120,10 @@ const vertices = [_]f32{
     -0.5, 0.5,  0.0, 0.0, 1.0,
 };
 
-// const vertices = [_]f32{
-//     -sqw, sqh, 0.0, // top left   0
-//     0.0, sqh, 0.0, // top center  1
-//     sqw, sqh, 0.0, // top right   2
-//     //
-//     -sqw, 0.0, 0.0, // center left  3
-//     0.0, 0.0, 0.0, // center center 4
-//     sqw, 0.0, 0.0, // center right  5
-//     //
-//     -sqw, -sqh, 0.0, // bottom left  6
-//     0.0, -sqh, 0.0, // bottom center 7
-//     sqw, -sqh, 0.0, // bottom right  8
-// };
-//
-// const whiteIndices = [_]u32{
-//     0, 1, 4,
-//     3, 0, 4,
-//     //
-//     4, 5, 8,
-//     7, 4, 8,
-// };
-//
-// const blackIndices = [_]u32{
-//     1, 2, 5,
-//     4, 1, 5,
-//     //
-//     3, 4, 7,
-//     6, 3, 7,
-// };
+const indices = [_]u32{
+    0, 1, 3, // first triangle
+    1, 2, 3, // second triangle
+};
 
 const std = @import("std");
 const qp = @import("qp");
