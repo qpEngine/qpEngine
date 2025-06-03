@@ -58,17 +58,18 @@ pub fn main() !void {
     var EBO: gl.Uint = tlib.createEBO(&indices);
     defer gl.deleteBuffers(1, &EBO);
 
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), null);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), null);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
+    gl.vertexAttribPointer(2, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(5 * @sizeOf(f32))));
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
+    gl.enableVertexAttribArray(2);
 
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
 
     var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     defer shader.deinit();
 
-    // const texture = try Texture.init("misc/textures/wall.jpg", std.heap.page_allocator);
     const texture = try Texture.init("misc/textures/wall.jpg");
 
     // render loop
@@ -113,11 +114,11 @@ const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
 // const sqw = 0.5;
 
 const vertices = [_]f32{
-    // positions     // texture coords
-    sqw,  sqh,  0.0, 1.0, 1.0,
-    sqw,  -sqh, 0.0, 1.0, 0.0,
-    -sqw, -sqh, 0.0, 0.0, 0.0,
-    -sqw, sqh,  0.0, 0.0, 1.0,
+    // pos           // coords // colors
+    sqw,  sqh,  0.0, 1.0, 1.0, 1.0, 0.0, 0.0,
+    sqw,  -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0,
+    -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+    -sqw, sqh,  0.0, 0.0, 1.0, 1.0, 1.0, 0.0,
 };
 
 const indices = [_]u32{
