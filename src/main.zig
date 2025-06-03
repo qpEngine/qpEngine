@@ -52,36 +52,32 @@ pub fn main() !void {
     var VBO: gl.Uint = tlib.createVBO(&vertices);
     defer gl.deleteBuffers(1, &VBO);
 
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 3 * @sizeOf(f32), null);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), null);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), 3 * @sizeOf(f32));
     gl.enableVertexAttribArray(0);
+    gl.enableVertexAttribArray(1);
     gl.bindBuffer(gl.ARRAY_BUFFER, 0);
 
-    var wEBO: gl.Uint = tlib.createEBO(&whiteIndices);
-    defer gl.deleteBuffers(1, &wEBO);
-
-    var bEBO: gl.Uint = tlib.createEBO(&blackIndices);
-    defer gl.deleteBuffers(1, &bEBO);
+    // var wEBO: gl.Uint = tlib.createEBO(&whiteIndices);
+    // defer gl.deleteBuffers(1, &wEBO);
+    //
+    // var bEBO: gl.Uint = tlib.createEBO(&blackIndices);
+    // defer gl.deleteBuffers(1, &bEBO);
 
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
     // gl.polygonMode(gl.FRONT_AND_BACK, gl.LINE);
 
-    // const wSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &wFragmentShaderSource);
-    // defer gl.deleteProgram(wSP);
-
-    var whiteShader = try Shader.init("src/shaders/main.vert", "src/shaders/white.frag", std.heap.page_allocator);
-    defer whiteShader.delete();
-
-    // const bSP: gl.Uint = tlib.createShaderProgram(&vertexShaderSource, &bFragmentShaderSource);
-    // defer gl.deleteProgram(bSP);
-
-    var blackShader = try Shader.init("src/shaders/main.vert", "src/shaders/black.frag", std.heap.page_allocator);
-    defer blackShader.delete();
+    // var whiteShader = try Shader.init("src/shaders/main.vert", "src/shaders/white.frag", std.heap.page_allocator);
+    // defer whiteShader.delete();
+    //
+    // var blackShader = try Shader.init("src/shaders/main.vert", "src/shaders/black.frag", std.heap.page_allocator);
+    // defer blackShader.delete();
 
     // render loop
     while (!window.shouldClose()) {
         processInput(window);
 
-        gl.clearColor(0.16, 0.12, 0.07, 1.0);
+        gl.clearColor(0.16, 0.12, 0.07, 1.0); // background color
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         gl.bindVertexArray(VAO);
@@ -89,22 +85,15 @@ pub fn main() !void {
         const timeValue: f64 = glfw.getTime();
         const oscValue: f64 = (@sin(timeValue) / 2.0) + 0.5; // oscillates between 0.0 and 1.0
 
-        // const wColorLocation: gl.Int = gl.getUniformLocation(wSP, "wColor");
-        // gl.useProgram(wSP);
-        whiteShader.use();
-        // white color  = vec4(0.6, 0.46, 0.25, 1.0);
-        whiteShader.setFloat4("wColor", 0.6, 0.46, @as(f32, @floatCast(oscValue)), 1.0);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wEBO);
-        gl.drawElements(gl.TRIANGLES, whiteIndices.len, gl.UNSIGNED_INT, null);
+        // whiteShader.use();
+        // whiteShader.setFloat4("wColor", 0.6, 0.46, @as(f32, @floatCast(oscValue)), 1.0);
+        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, wEBO);
+        // gl.drawElements(gl.TRIANGLES, whiteIndices.len, gl.UNSIGNED_INT, null);
 
-        // const bColorLocation: gl.Int = gl.getUniformLocation(bSP, "bColor");
-        // gl.useProgram(bSP);
-        blackShader.use();
-        // black color = vec4(0.31, 0.24, 0.13, 1.0);
-        whiteShader.setFloat4("bColor", 0.31, @as(f32, @floatCast(oscValue)), 0.13, 1.0);
-        // gl.bindVertexArray(VAO);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bEBO);
-        gl.drawElements(gl.TRIANGLES, blackIndices.len, gl.UNSIGNED_INT, null);
+        // blackShader.use();
+        // blackShader.setFloat4("bColor", 0.31, @as(f32, @floatCast(oscValue)), 0.13, 1.0);
+        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bEBO);
+        // gl.drawElements(gl.TRIANGLES, blackIndices.len, gl.UNSIGNED_INT, null);
 
         window.swapBuffers();
         glfw.pollEvents();
@@ -134,71 +123,53 @@ const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
 // const sqw = 0.5;
 
 const vertices = [_]f32{
-    -sqw, sqh, 0.0, // top left   0
-    0.0, sqh, 0.0, // top center  1
-    sqw, sqh, 0.0, // top right   2
-    //
-    -sqw, 0.0, 0.0, // center left  3
-    0.0, 0.0, 0.0, // center center 4
-    sqw, 0.0, 0.0, // center right  5
-    //
-    -sqw, -sqh, 0.0, // bottom left  6
-    0.0, -sqh, 0.0, // bottom center 7
-    sqw, -sqh, 0.0, // bottom right  8
+    // positions      // texture coords
+    0.5,  0.5,  0.0, 1.0, 1.0,
+    0.5,  -0.5, 0.0, 1.0, 0.0,
+    -0.5, -0.5, 0.0, 0.0, 0.0,
+    -0.5, 0.5,  0.0, 0.0, 1.0,
 };
 
-const whiteIndices = [_]u32{
-    0, 1, 4,
-    3, 0, 4,
-    //
-    4, 5, 8,
-    7, 4, 8,
-};
-
-const blackIndices = [_]u32{
-    1, 2, 5,
-    4, 1, 5,
-    //
-    3, 4, 7,
-    6, 3, 7,
-};
-
-const vertexShaderSource: [*c]const u8 =
-    \\#version 330 core
-    \\layout (location = 0) in vec3 aPos;
-    \\void main() {
-    \\    gl_Position = vec4(aPos, 1.0);
-    \\}
-;
-
-const wFragmentShaderSource: [*c]const u8 =
-    \\#version 330 core
-    \\out vec4 FragColor;
-    \\uniform vec4 wColor;
-    \\void main() {
-    \\    //FragColor = vec4(0.6, 0.46, 0.25, 1.0);
-    \\    FragColor = wColor;
-    \\}
-;
-
-const bFragmentShaderSource: [*c]const u8 =
-    \\#version 330 core
-    \\out vec4 FragColor;
-    \\uniform vec4 bColor;
-    \\void main() {
-    \\    //FragColor = vec4(0.31, 0.24, 0.13, 1.0);
-    \\    FragColor = bColor;
-    \\}
-;
+// const vertices = [_]f32{
+//     -sqw, sqh, 0.0, // top left   0
+//     0.0, sqh, 0.0, // top center  1
+//     sqw, sqh, 0.0, // top right   2
+//     //
+//     -sqw, 0.0, 0.0, // center left  3
+//     0.0, 0.0, 0.0, // center center 4
+//     sqw, 0.0, 0.0, // center right  5
+//     //
+//     -sqw, -sqh, 0.0, // bottom left  6
+//     0.0, -sqh, 0.0, // bottom center 7
+//     sqw, -sqh, 0.0, // bottom right  8
+// };
+//
+// const whiteIndices = [_]u32{
+//     0, 1, 4,
+//     3, 0, 4,
+//     //
+//     4, 5, 8,
+//     7, 4, 8,
+// };
+//
+// const blackIndices = [_]u32{
+//     1, 2, 5,
+//     4, 1, 5,
+//     //
+//     3, 4, 7,
+//     6, 3, 7,
+// };
 
 const std = @import("std");
 const qp = @import("qp");
 const glfw = @import("zglfw");
+const stbi = @import("zstbi");
 const zopengl = @import("zopengl");
 const gl = zopengl.bindings;
 
 const tlib = @import("templib.zig");
-const Shader = @import("shader.zig").Shader;
+const Shader = @import("resources/shader.zig").Shader;
+const Texture = @import("resources/texture.zig").Texture;
 
 const Allocator = std.mem.Allocator;
 const Regex = qp.util.Regex;
