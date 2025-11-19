@@ -7,34 +7,34 @@
     .minimum_zig_version = "0.14.0",
 
     .dependencies = .{
-        .pcre2 = .{
-            .url = "https://github.com/qaptoR-support/pcre2/archive/refs/tags/zig0.14.tar.gz",
-            .hash = "N-V-__8AAN0G3wA6horCZYad-eyYofHQ4Q9D7m9nSWiCqbXb",
+        .pcrez = .{
+            .url = "https://github.com/qaptoR-zig/PCREz/archive/refs/tags/v0.1.1.tar.gz",
+            .hash = "pcrez-0.0.1-f7US7SRXAAA7H18ci8X0SOHvpQUjfJHH_YYyR5cnQ3Hj",
         },
 
         .zopengl = .{
-            .url = "git+https://github.com/zig-gamedev/zopengl#2c2eb79283b7c1149da9eae6948dedb072b5d058",
-            .hash = "zopengl-0.6.0-dev-5-tnzzFUCACS5Ongbip8bl028sYtkNnzNSjhsfRj3yk1",
+            .url = "git+https://github.com/zig-gamedev/zopengl#9cd96da7bca984fa88758c967db4438756ae9e72",
+            .hash = "zopengl-0.6.0-dev-5-tnz-QSCgBPL_lBhTJ87cnl_jlfVwW-RFrrD3YjzaTe",
         },
 
         .zglfw = .{
-            .url = "git+https://github.com/zig-gamedev/zglfw#dcb1dae7d4a90f88b70dbae73300ab9b19fb250c",
-            .hash = "zglfw-0.10.0-dev-zgVDNJmZIQCIiO_94Sp5jqrPtz4Eumk3bDcxS7dSZfIj",
+            .url = "git+https://github.com/zig-gamedev/zglfw#6034a5623312c58bf5e64c1a2b686691c28575f4",
+            .hash = "zglfw-0.10.0-dev-zgVDNPKyIQCBi-wv_vxkvIQq1u0bP4D56Wszx_2mszc7",
         },
 
         .zsdl = .{
-            .url = "git+https://github.com/zig-gamedev/zsdl#89c1fe2d7ef5020c68e71ac574195f09fc949cce",
-            .hash = "zsdl-0.4.0-dev-rFpjE5FXWQAHcbsSHDjFtbTkruSgvRVYOae6x8RXCnoM",
+            .url = "git+https://github.com/zig-gamedev/zsdl#8c6617c2ce3384a6e910ff67d621c9ded1c049fc",
+            .hash = "zsdl-0.4.0-dev-rFpjE8cHXwBwnQAeRLDaUSGhH-mljzoiuHDydEVQbCeE",
         },
 
         .zstbi = .{
-            .url = "git+https://github.com/zig-gamedev/zstbi#094c4bba5cdbec167d3f6aaa98cccccd5c99145f",
-            .hash = "zstbi-0.11.0-dev-L0Ea_-eVBwCl8RYA98PhLDw3Fhw5k7FJOHSMDKWDOvqx",
+            .url = "git+https://github.com/zig-gamedev/zstbi#2c4b3100ccb7aed90ecc9439030899764e2a8d47",
+            .hash = "zstbi-0.11.0-dev-L0Ea_yaWBwAHwFoCuyjkFyaiSsbjt4UOrkntR0c_nmzz",
         },
 
         .zgui = .{
-            .url = "git+https://github.com/zig-gamedev/zgui#21dcc288ac5ee70b1fca789d53a06d5c49d51e5e",
-            .hash = "zgui-0.6.0-dev--L6sZKTBaADLHp09LtUUifdfFpsczwbnyH7r2ajfVPuJ",
+            .url = "git+https://github.com/zig-gamedev/zgui#22deaab3363ac0fd8f34b91a1cd66883199960f9",
+            .hash = "zgui-0.6.0-dev--L6sZATybQCK2aBUnZ_5VKga-60UiZZ0v4e0T9doN4iu",
         },
     },
 
