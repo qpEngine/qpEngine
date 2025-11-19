@@ -1,17 +1,54 @@
 
 
-I. roman numerals as section headings
 
-I.
 
-II.
 
-III.
+    I. qpEngine
+                                                         ,,
+                      `7MM"""YMM                         db
+                        MM    `7
+      ,dW"Yvd`7MMpdMAo. MM   d    `7MMpMMMb.  .P"Ybmmm `7MM  `7MMpMMMb.  .gP"Ya
+     ,W'   MM  MM   `Wb MMmmMM      MM    MM :MI  I8     MM    MM    MM ,M'   Yb
+     8M    MM  MM    M8 MM   Y  ,   MM    MM  WmmmP"     MM    MM    MM 8M""""""
+     YA.   MM  MM   ,AP MM     ,M   MM    MM 8M          MM    MM    MM YM.    ,
+      'MbmdMM  MMbmmd'.JMMmmmmMMM .JMML  JMML.YMMMMMb  .JMML..JMML  JMML.`Mbmmd'
+           MM  MM                            6'     dP
+         .JMMLJMML.                          YbmmmdY'
 
-IV.
 
-I.
-    i:
-    ii:
-    iii:
-    iv:
+
+    II. Introduction
+
+    [Attention] This engine is pre v1.0, please recognize that it is a work in
+    progress, and may not be full featured for many years.
+
+    You can read more about why this project started in the /lore/purpose.fey
+    document, which may be updated from time to time.
+
+    tl;dr This engine is designed to help me complete Advent of Code challenges,
+    as well as provide a 2D and 3D graphical framework for visualizing the
+    solutions. Eventually I hope that progress in this way will lead to a suite
+    of features than can be further developed into a proper game engine.
+
+
+    III. What is Fey file format?
+
+    Fey is a new markup language format. Specification of the language can be found at:
+    [Url] https://github.com/Loreite/Fey
+
+    It is extremely early in development, and it is not recommended that anyone use it
+    themselves unless they are prepared to deal with a continually changing specification.
+
+    However, it is used in this project (as well as for its own documentation), so consider this
+    a demonstration of its capabilities. (More or less what it looks like to use).
+
+    Feel free to play around with it however, and contribute suggestions to the project.
+
+    One thing to note is that Fey is designed to be different for each individual user, which is
+    where it gets the name. There is nothing wrong with your Fey files looking different from
+    any others. The specification of an eventual Fey interpreter will be the only thing that
+    ultimately determines what is valid Fey or not, and it is intended to be scriptable.
+
+
+
+
