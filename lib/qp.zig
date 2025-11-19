@@ -25,5 +25,6 @@
 //
 //
 
-pub const Regex = @import("util/regex.zig").Regex;
-pub const RegexMatch = @import("util/regex.zig").RegexMatch;
+//pub const util = @import("util.zig");
+pub const math = @import("core/math.zig");
+pub const re = @import("pcrez");

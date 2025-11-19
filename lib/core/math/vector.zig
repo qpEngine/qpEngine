@@ -1332,13 +1332,8 @@ pub fn Vector(
         /// < void
         pub fn format( // zig fmt: off
             self: *const Self,
-            comptime fmt: []const u8,
-            options: std.fmt.FormatOptions,
             writer: anytype
         ) !void {
-            _ = fmt;
-            _ = options;
-
             try writer.print("Vector{d}(", .{N});
             for (self.data, 0..) |v, i| {
                 if (i > 0) try writer.print(", ", .{});
@@ -2000,6 +1995,6 @@ test "Clamping" {
 test "Formatting" {
     const v1 = Vector(f32, 3).from(.{ 1.2, 2.0, 0.25 });
     var buf: [64]u8 = undefined;
-    const fmt = try std.fmt.bufPrint(&buf, "{}", .{v1});
+    const fmt = try std.fmt.bufPrint(&buf, "{f}", .{v1});
     try testing.expect(std.mem.eql(u8, "Vector3(1.2, 2, 0.25)", fmt));
 }
