@@ -950,12 +950,21 @@ pub fn Vector(
         /// < T: unit^n volume scalar
         pub inline fn content(
             self: *const Self,
+            comptime ResultT: type,
             other_: anytype,
-        ) T {
+        ) ResultT {
+            const res_info = @typeInfo(ResultT);
+            if (isInt) {
+                if (res_info != .int) @compileError("ResultT must be an integer type for integer vectors");
+            } else {
+                if (res_info != .float) @compileError("ResultT must be a float type for float vectors");
+            }
             const b: V = vectorFromAny(other_, 0);
-            const c: V = if (isInt) @intCast(@abs(self.as() - b)) else @abs(self.as() - b);
+            const diff = self.as() - b;
 
-            return @reduce(.Mul, c);
+            const RVec = @Vector(N, ResultT);
+            const wide: RVec = if (isInt) @intCast(@abs(diff)) else @floatCast(@abs(diff));
+            return @reduce(.Mul, wide);
         }
 
         /// Compute length (magnitude) of vector
@@ -1964,11 +1973,12 @@ test "Cross" {
 test "Content" {
     const v1 = Vector(f32, 3).from(.{ 1.5, 2.5, 3.5 });
     const v2 = Vector(f32, 3).from(.{ 3.5, 4.5, 5.5 });
-    try testing.expectEqual(8.0, v1.content(v2));
+    try testing.expectEqual(8.0, v1.content(f32, v2));
 
     const v3 = Vector(i32, 2).from(.{ 1, 4 });
     const v4 = Vector(i32, 2).from(.{ 3, 6 });
-    try testing.expectEqual(4, v3.content(v4));
+    try testing.expectEqual(4, v3.content(i16, v4));
+    try testing.expectEqual(4, v3.content(i64, v4));
 }
 
 test "Length" {
