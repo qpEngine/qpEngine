@@ -953,7 +953,7 @@ pub fn Vector(
             other_: anytype,
         ) T {
             const b: V = vectorFromAny(other_, 0);
-            const c: V = if (@typeInfo(T) == .int) @intCast(@abs(self.as() - b)) else @abs(self.as() - b);
+            const c: V = if (isInt) @intCast(@abs(self.as() - b)) else @abs(self.as() - b);
 
             return @reduce(.Mul, c);
         }
@@ -1012,9 +1012,10 @@ pub fn Vector(
         }
 
         /// Update Vector with Sign of components
+        /// Sign of 0 = 0
         ///
         /// < *Self: Updated Current Vector
-        pub inline fn sign(
+        pub inline fn signZ(
             self: *Self,
         ) *Self {
             const comps = self.as();
@@ -1028,12 +1029,56 @@ pub fn Vector(
         }
 
         /// Copy of current Vector with Sign of components
+        /// Sign of 0 = 0
+        ///
+        /// < Self: Signed Vector
+        pub inline fn signZed(
+            self: *const Self,
+        ) Self {
+            return self.clone().ptr().signZ().*;
+        }
+
+        /// Update Vector with the Sign of Components
+        /// Sign of 0 = 1
+        ///
+        /// < *Self: Update Current Vector
+        pub inline fn sign(
+            self: *Self,
+        ) *Self {
+            _ = self.signZ();
+            const comps = self.as();
+            const equals = comps == vectorFromAny(0, 0);
+            self.data = @select(T, equals, vectorFromAny(1, 0), comps);
+            return self;
+        }
+
+        /// Copy of current Vector with the Sign of Components
+        /// Sign of 0 = 1
         ///
         /// < Self: Signed Vector
         pub inline fn signed(
             self: *const Self,
         ) Self {
             return self.clone().ptr().sign().*;
+        }
+
+        /// Update Vector with Absolute value of components
+        ///
+        /// < *Self: Updated Current Vector
+        pub inline fn absolute(
+            self: *Self,
+        ) *Self {
+            self.data = if (isInt) @as(V, @intCast(@abs(self.as()))) else @abs(self.as());
+            return self;
+        }
+
+        /// Copy of current Vector with Absolute value of components
+        ///
+        /// < Self: Absolute Vector
+        pub inline fn absoluted(
+            self: *const Self,
+        ) Self {
+            return self.clone().ptr().absolute().*;
         }
 
         /// Compute direction vector between vectors
@@ -1052,7 +1097,7 @@ pub fn Vector(
             return new.subtract(self).normalized() catch (Self).from(0);
         }
 
-        /// Calculate distance between vectors
+        /// Calculate euclidean distance between vectors
         /// returns float if vector element type is int
         /// other vector converterd from anytype
         ///
@@ -1072,7 +1117,7 @@ pub fn Vector(
             };
         }
 
-        /// Calculate squared distance between vectors
+        /// Calculate squared euclidean distance between vectors
         /// other vector converterd from anytype
         ///
         /// > other: anytype
@@ -1085,6 +1130,23 @@ pub fn Vector(
         ) T {
             var new = if (@TypeOf(other_) == Self) other_ else Self.from(other_);
             return new.subtract(self).lengthSq();
+        }
+
+        /// Calculate manhattan distance between vectors
+        /// other vector converterd from anytype
+        ///
+        /// > other: anytype
+        ///    Vector to calculate distance to
+        ///
+        /// < T: Manhattan distance scalar
+        pub inline fn manhattanTo(
+            self: *const Self,
+            other_: anytype,
+        ) T {
+            const b: V = vectorFromAny(other_, 0);
+            const c: V = if (isInt) @intCast(@abs(self.as() - b)) else @abs(self.as() - b);
+
+            return @reduce(.Add, c);
         }
 
         /// In place Linear Interpolation between vectors at time t
@@ -1933,15 +1995,38 @@ test "Normalize" {
 }
 
 test "Sign" {
+    // SignZ
     var v1 = Vector(f32, 3).from(.{ 1.0, -2.0, 0.0 });
-    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 0.0 }), v1.signed());
-    _ = v1.sign();
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 0.0 }), v1.signZed());
+    _ = v1.signZ();
     try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 0.0 }), v1);
 
     var v2 = Vector(i64, 3).from(.{ 1, -2, 0 });
-    try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 0 }), v2.signed());
-    _ = v2.sign();
+    try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 0 }), v2.signZed());
+    _ = v2.signZ();
     try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 0 }), v2);
+
+    // Sign
+    var v3 = Vector(f32, 3).from(.{ 1.0, -2.0, 0.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 1.0 }), v3.signed());
+    _ = v3.sign();
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 1.0 }), v3);
+
+    var v4 = Vector(i64, 3).from(.{ 1, -2, 0 });
+    try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 1 }), v4.signed());
+    _ = v4.sign();
+    try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 1 }), v4);
+
+    // Absolute
+    var v5 = Vector(f32, 3).from(.{ 1.0, -2.0, 0.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 2.0, 0.0 }), v5.absoluted());
+    _ = v5.absolute();
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 2.0, 0.0 }), v5);
+
+    var v6 = Vector(i64, 3).from(.{ 1, -2, 0 });
+    try testing.expectEqual(Vector(i64, 3).from(.{ 1, 2, 0 }), v6.absoluted());
+    _ = v6.absolute();
+    try testing.expectEqual(Vector(i64, 3).from(.{ 1, 2, 0 }), v6);
 }
 
 test "Direction" {
@@ -1953,16 +2038,19 @@ test "Direction" {
     const v4 = Vector(i64, 3).from(.{ 2, 4, 4 });
     try testing.expectEqual(Vector(i64, 3).from(.{ 0, 1, 1 }), v3.directionTo(v4));
 }
+
 test "Distance" {
     const v1 = Vector(f32, 3).from(.{ 1.0, 2.0, 2.0 });
     const v2 = Vector(f32, 3).from(.{ 2.0, 4.0, 4.0 });
     try testing.expectEqual(3.0, v1.distanceTo(v2));
     try testing.expectEqual(9.0, v1.distanceToSq(v2));
+    try testing.expectEqual(5.0, v1.manhattanTo(v2));
 
     const v3 = Vector(i64, 3).from(.{ 1, 2, 2 });
     const v4 = Vector(i64, 3).from(.{ 2, 4, 4 });
     try testing.expectEqual(3.0, v3.distanceTo(v4));
     try testing.expectEqual(9, v3.distanceToSq(v4));
+    try testing.expectEqual(5, v3.manhattanTo(v4));
 }
 
 test "Interpolation" {
