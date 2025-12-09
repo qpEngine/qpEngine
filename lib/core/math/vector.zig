@@ -977,20 +977,41 @@ pub fn Vector(
         /// > b: anytype
         ///    Second corner Vector
         ///
+        /// > bounds: []const u8
+        ///     Content bounds defined by two characters from sets:
+        ///     0:{'[', '('} and 1:{']', ')'}
+        ///
         /// < bool: Containment boolean
         pub inline fn contained(
             self: *const Self,
             a_: anytype,
             b_: anytype,
+            comptime bounds_: []const u8,
         ) bool {
+            if (bounds_.len != 2) @compileError("bounds_ must be of length 2");
+            if (comptime std.mem.indexOfNone(u8, bounds_[0..1], "[(") != null) {
+                @compileError("Min bounds can only contain '[', '(', found: " ++ bounds_[0..1]);
+            }
+            if (comptime std.mem.indexOfNone(u8, bounds_[1..], "])") != null) {
+                @compileError("Max bounds can only contain ']', ')', found: " ++ bounds_[1..]);
+            }
+
             const a: V = vectorFromAny(a_, 0);
             const b: V = vectorFromAny(b_, 0);
 
             const min_vec: V = @min(a, b);
             const max_vec: V = @max(a, b);
 
-            const greater_min: B = min_vec <= self.as();
-            const less_max: B = self.as() < max_vec;
+            const greater_min: B = switch (bounds_[0]) {
+                '[' => min_vec <= self.as(),
+                '(' => min_vec < self.as(),
+                else => unreachable,
+            };
+            const less_max: B = switch (bounds_[1]) {
+                ']' => self.as() <= max_vec,
+                ')' => self.as() < max_vec,
+                else => unreachable,
+            };
 
             return @reduce(.And, greater_min & less_max);
         }
@@ -2011,53 +2032,87 @@ test "Content" {
 
 test "Contained" {
     {
-        const v1 = Vector(f32, 2).from(.{ 1.5, 2.5 });
-        const v2 = Vector(f32, 2).from(.{ 3.5, 4.5 });
+        const v_min = Vector(f32, 2).from(.{ 1.0, 1.0 });
+        const v_max = Vector(f32, 2).from(.{ 3.0, 3.0 });
 
-        const v3 = Vector(f32, 2).from(.{ 2.5, 3.5 });
-        const v4 = Vector(f32, 2).from(.{ 3.5, 4.4 });
-        const v5 = Vector(f32, 2).from(.{ 1.5, 3.5 });
-        try testing.expect(v3.contained(v2, v1));
-        try testing.expect(v3.contained(v1, v2));
-        try testing.expect(!v4.contained(v2, v1));
-        try testing.expect(v5.contained(v2, v1));
+        // Point strictly inside - should pass all bounds
+        const v_inside = Vector(f32, 2).from(.{ 2.0, 2.0 });
+        try testing.expect(v_inside.contained(v_min, v_max, "[]"));
+        try testing.expect(v_inside.contained(v_min, v_max, "[)"));
+        try testing.expect(v_inside.contained(v_min, v_max, "(]"));
+        try testing.expect(v_inside.contained(v_min, v_max, "()"));
 
-        const v6 = Vector(f32, 2).from(.{ 1.5, 4.5 });
-        const v7 = Vector(f32, 2).from(.{ 3.5, 2.5 });
-        try testing.expect(v3.contained(v6, v7));
-        try testing.expect(v3.contained(v7, v6));
-        try testing.expect(!v4.contained(v6, v7));
-        try testing.expect(v5.contained(v6, v7));
+        // Point on min boundary
+        const v_on_min = Vector(f32, 2).from(.{ 1.0, 2.0 });
+        try testing.expect(v_on_min.contained(v_min, v_max, "[]"));
+        try testing.expect(v_on_min.contained(v_min, v_max, "[)"));
+        try testing.expect(!v_on_min.contained(v_min, v_max, "(]"));
+        try testing.expect(!v_on_min.contained(v_min, v_max, "()"));
 
-        const v8 = Vector(f32, 2).from(.{ 1.5, 5.5 });
-        const v9 = Vector(f32, 2).from(.{ 3.5, 0.5 });
-        try testing.expect(!v8.contained(v6, v7));
-        try testing.expect(!v9.contained(v6, v7));
+        // Point on max boundary
+        const v_on_max = Vector(f32, 2).from(.{ 2.0, 3.0 });
+        try testing.expect(v_on_max.contained(v_min, v_max, "[]"));
+        try testing.expect(!v_on_max.contained(v_min, v_max, "[)"));
+        try testing.expect(v_on_max.contained(v_min, v_max, "(]"));
+        try testing.expect(!v_on_max.contained(v_min, v_max, "()"));
+
+        // Point outside (below min)
+        const v_below = Vector(f32, 2).from(.{ 0.5, 2.0 });
+        try testing.expect(!v_below.contained(v_min, v_max, "[]"));
+
+        // Point outside (above max)
+        const v_above = Vector(f32, 2).from(.{ 2.0, 3.5 });
+        try testing.expect(!v_above.contained(v_min, v_max, "[]"));
+
+        // Corner order independence - reversed corners
+        try testing.expect(v_inside.contained(v_max, v_min, "[]"));
+
+        // Mixed corner order (different components swapped)
+        const v_mixed1 = Vector(f32, 2).from(.{ 1.0, 3.0 });
+        const v_mixed2 = Vector(f32, 2).from(.{ 3.0, 1.0 });
+        try testing.expect(v_inside.contained(v_mixed1, v_mixed2, "[]"));
     }
 
     {
-        const v1 = Vector(i32, 2).from(.{ 1, 2 });
-        const v2 = Vector(i32, 2).from(.{ 3, 4 });
+        const v_min = Vector(i32, 2).from(.{ 1, 1 });
+        const v_max = Vector(i32, 2).from(.{ 3, 3 });
 
-        const v3 = Vector(i32, 2).from(.{ 2, 3 });
-        const v4 = Vector(i32, 2).from(.{ 2, 4 });
-        const v5 = Vector(i32, 2).from(.{ 1, 3 });
-        try testing.expect(v3.contained(v2, v1));
-        try testing.expect(v3.contained(v1, v2));
-        try testing.expect(!v4.contained(v2, v1));
-        try testing.expect(v5.contained(v2, v1));
+        // Point strictly inside - should pass all bounds
+        const v_inside = Vector(i32, 2).from(.{ 2, 2 });
+        try testing.expect(v_inside.contained(v_min, v_max, "[]"));
+        try testing.expect(v_inside.contained(v_min, v_max, "[)"));
+        try testing.expect(v_inside.contained(v_min, v_max, "(]"));
+        try testing.expect(v_inside.contained(v_min, v_max, "()"));
 
-        const v6 = Vector(i32, 2).from(.{ 1, 4 });
-        const v7 = Vector(i32, 2).from(.{ 3, 2 });
-        try testing.expect(v3.contained(v6, v7));
-        try testing.expect(v3.contained(v7, v6));
-        try testing.expect(!v4.contained(v6, v7));
-        try testing.expect(v5.contained(v6, v7));
+        // Point on min boundary
+        const v_on_min = Vector(i32, 2).from(.{ 1, 2 });
+        try testing.expect(v_on_min.contained(v_min, v_max, "[]"));
+        try testing.expect(v_on_min.contained(v_min, v_max, "[)"));
+        try testing.expect(!v_on_min.contained(v_min, v_max, "(]"));
+        try testing.expect(!v_on_min.contained(v_min, v_max, "()"));
 
-        const v8 = Vector(i32, 2).from(.{ 1, 5 });
-        const v9 = Vector(i32, 2).from(.{ 3, 0 });
-        try testing.expect(!v8.contained(v6, v7));
-        try testing.expect(!v9.contained(v6, v7));
+        // Point on max boundary
+        const v_on_max = Vector(i32, 2).from(.{ 2, 3 });
+        try testing.expect(v_on_max.contained(v_min, v_max, "[]"));
+        try testing.expect(!v_on_max.contained(v_min, v_max, "[)"));
+        try testing.expect(v_on_max.contained(v_min, v_max, "(]"));
+        try testing.expect(!v_on_max.contained(v_min, v_max, "()"));
+
+        // Point outside (below min)
+        const v_below = Vector(i32, 2).from(.{ 0, 2 });
+        try testing.expect(!v_below.contained(v_min, v_max, "[]"));
+
+        // Point outside (above max)
+        const v_above = Vector(i32, 2).from(.{ 2, 4 });
+        try testing.expect(!v_above.contained(v_min, v_max, "[]"));
+
+        // Corner order independence - reversed corners
+        try testing.expect(v_inside.contained(v_max, v_min, "[]"));
+
+        // Mixed corner order (different components swapped)
+        const v_mixed1 = Vector(i32, 2).from(.{ 1, 3 });
+        const v_mixed2 = Vector(i32, 2).from(.{ 3, 1 });
+        try testing.expect(v_inside.contained(v_mixed1, v_mixed2, "[]"));
     }
 }
 
