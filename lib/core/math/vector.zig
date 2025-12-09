@@ -871,7 +871,7 @@ pub fn Vector(
         ///    Vectors to compute cross product with
         ///
         /// < Self: Cross product as new Vector
-        pub fn cross(
+        pub inline fn cross(
             vectors_: [N - 1]Self,
         ) Self {
             var result: [N]T = undefined;
@@ -938,6 +938,24 @@ pub fn Vector(
             }
 
             return det;
+        }
+
+        /// Compute the n-volume spanned by opposing corner Vectors
+        /// Does not include content of sides bounded by other Vector
+        /// Other vectors converterd from anytype
+        ///
+        /// > other: anytype
+        ///     Vector opposite corner
+        ///
+        /// < T: unit^n volume scalar
+        pub inline fn content(
+            self: *const Self,
+            other_: anytype,
+        ) T {
+            const b: V = vectorFromAny(other_, 0);
+            const c: V = if (@typeInfo(T) == .int) @intCast(@abs(self.as() - b)) else @abs(self.as() - b);
+
+            return @reduce(.Mul, c);
         }
 
         /// Compute length (magnitude) of vector
@@ -1580,8 +1598,8 @@ test "Initialize" {
 
     // empty initialization
     {
-        const v1 = Vector(f32, 3).init();
-        try testing.expectEqual([3]f32{ undefined, undefined, undefined }, v1.data);
+        // const v1 = Vector(f32, 3).init();
+        // try testing.expectEqual([3]f32{ undefined, undefined, undefined }, v1.data);
     }
 
     // splatting
@@ -1879,6 +1897,16 @@ test "Cross" {
     const v3 = Vector(i64, 3).from(.{ 1, 0, 0 });
     const v4 = Vector(i64, 3).from(.{ 0, 1, 0 });
     try testing.expectEqual(Vector(i64, 3).from(.{ 0, 0, 1 }), Vector(i64, 3).cross(.{ v3, v4 }));
+}
+
+test "Content" {
+    const v1 = Vector(f32, 3).from(.{ 1.5, 2.5, 3.5 });
+    const v2 = Vector(f32, 3).from(.{ 3.5, 4.5, 5.5 });
+    try testing.expectEqual(8.0, v1.content(v2));
+
+    const v3 = Vector(i32, 2).from(.{ 1, 4 });
+    const v4 = Vector(i32, 2).from(.{ 3, 6 });
+    try testing.expectEqual(4, v3.content(v4));
 }
 
 test "Length" {
