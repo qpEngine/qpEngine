@@ -8,8 +8,8 @@
 
     .dependencies = .{
         .pcrez = .{
-            .url = "https://github.com/qaptoR-zig/PCREz/archive/refs/tags/v0.1.1.tar.gz",
-            .hash = "pcrez-0.0.1-f7US7SRXAAA7H18ci8X0SOHvpQUjfJHH_YYyR5cnQ3Hj",
+            .url = "https://github.com/qaptoR-zig/PCREz/archive/refs/tags/v0.2.0.tar.gz",
+            .hash = "pcrez-0.0.1-f7US7d5mAAAc5cCItlm3je4CImRplBhVxouIORmkmmoN",
         },
 
         .zopengl = .{
