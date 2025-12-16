@@ -45,6 +45,11 @@
 //
 
 pub const Vector = @import("math/vector.zig").Vector;
-pub const Vector2 = @import("math/vector.zig").Vector2;
-pub const Vector3 = @import("math/vector.zig").Vector3;
-pub const Vector4 = @import("math/vector.zig").Vector4;
+pub const Vector2 = @import("math/vector2.zig").Vector2;
+pub const Vector3 = @import("math/vector3.zig").Vector3;
+pub const Vector4 = @import("math/vector4.zig").Vector4;
+
+// const testing = @import("std").testing;
+// test "math lib" {
+//     testing.refAllDecls(@This());
+// }

@@ -66,6 +66,7 @@ pub fn Vector(
         const B = @Vector(N, bool); // Boolean SIMD Vector type
         const len: u16 = N;                       // stored Vector type length
         const isInt: bool = @typeInfo(T) == .int; // stored Vector type is integral
+        const BoolInt = @Type(.{ .int = .{ .signedness = .unsigned, .bits = N } });
         // zig fmt: on
 
         // These functions simplify the logic for when functions operate differently with
@@ -107,8 +108,8 @@ pub fn Vector(
 
         /// Cast Vector as SIMD Vector
         ///
-        /// < SIMD Vector(N, T): SIMD Vector
-        pub inline fn as(
+        /// < @Vector(N, T): SIMD Vector
+        pub inline fn simd(
             self: *const Self,
         ) V {
             return self.data;
@@ -252,7 +253,6 @@ pub fn Vector(
             return arrayFrom(I, new);
         }
 
-        /// Private
         /// Convert any type to SIMD Vector of type T and size N
         ///
         /// If type is not supported, an error is thrown
@@ -295,7 +295,7 @@ pub fn Vector(
                         }
                         break :blk value_.*;
                     },
-                    // else => Self.from(value_.*).as(),
+                    // else => Self.from(value_.*).simd(),
                     else => vectorFromAny(value_.*, 0),
                 },
                 .vector => |v| switch (v_type) {
@@ -330,19 +330,43 @@ pub fn Vector(
                             @typeInfo(@FieldType(v_type, "data")) == .array)
                         {
                             const info: std.builtin.Type = @typeInfo(@FieldType(v_type, "data"));
-                            // break :blk resizeArray(info.array.child, N, value_.data, fill_);
                             break :blk arrayFrom(
                                 info.array.child,
                                 (if (v_type.len != N) value_.toSize(N, 0) else value_).data,
                             );
-                        } else if (@hasDecl(v_type, "as")) {
-                            break :blk vectorFromAny(value_.as(), fill_);
+                        } else if (@hasDecl(v_type, "simd")) {
+                            const simd_fn_info = @typeInfo(@TypeOf(v_type.simd));
+                            if (simd_fn_info == .@"fn") {
+                                const ReturnType = simd_fn_info.@"fn".return_type.?;
+                                const return_info = @typeInfo(ReturnType);
+                                if (return_info == .vector) {
+                                    break :blk vectorFromAny(value_.simd(), fill_);
+                                } else {
+                                    @compileError("Unsupported simd() return type");
+                                }
+                            } else {
+                                @compileError("Unsupported struct simd declaration");
+                            }
                         } else {
                             @compileError("Unsupported struct");
-                            // TODO: Add support for other structs
-                            // perhaps by expecting a 'toVec' method
                         }
                     },
+                },
+                .@"union" => if (@hasDecl(v_type, "simd")) blk: {
+                    const simd_fn_info = @typeInfo(@TypeOf(v_type.simd));
+                    if (simd_fn_info == .@"fn") {
+                        const ReturnType = simd_fn_info.@"fn".return_type.?;
+                        const return_info = @typeInfo(ReturnType);
+                        if (return_info == .vector) {
+                            break :blk vectorFromAny(value_.simd(), fill_);
+                        } else {
+                            @compileError("Unsupported simd() return type");
+                        }
+                    } else {
+                        @compileError("Unsupported union simd declaration");
+                    }
+                } else {
+                    @compileError("Unsupported union");
                 },
                 else => {
                     @compileLog("Type: {any}\n", .{v_type});
@@ -398,7 +422,7 @@ pub fn Vector(
         ) Vector(T, indices_.len) {
             const mask: @Vector(indices_.len, i32) = indices_[0..].*;
 
-            return Vector(T, indices_.len).from(@shuffle(T, self.as(), undefined, @abs(mask)));
+            return Vector(T, indices_.len).from(@shuffle(T, self.simd(), undefined, @abs(mask)));
         }
 
         /// Update Vector with Summation of vectors by components
@@ -414,7 +438,7 @@ pub fn Vector(
         ) *Self {
             const b: V = vectorFromAny(other_, 0);
 
-            self.data = self.as() + b;
+            self.data = self.simd() + b;
             return self;
         }
 
@@ -426,7 +450,7 @@ pub fn Vector(
         ///
         /// < Self: Sum Vector
         pub inline fn summated(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) Self {
             return self.clone().ptr().summate(other_).*;
@@ -445,7 +469,7 @@ pub fn Vector(
         ) *Self {
             const b: V = vectorFromAny(other_, 0);
 
-            self.data = self.as() - b;
+            self.data = self.simd() - b;
             return self;
         }
 
@@ -457,7 +481,7 @@ pub fn Vector(
         ///
         /// < Self: Difference Vector
         pub inline fn subtracted(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) Self {
             return self.clone().ptr().subtract(other_).*;
@@ -476,7 +500,7 @@ pub fn Vector(
         ) *Self {
             const b: V = vectorFromAny(other_, 1);
 
-            self.data = self.as() * b;
+            self.data = self.simd() * b;
             return self;
         }
 
@@ -488,7 +512,7 @@ pub fn Vector(
         ///
         /// < Self: Product Vector
         pub inline fn multiplied(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) Self {
             return self.clone().ptr().multiply(other_).*;
@@ -512,7 +536,7 @@ pub fn Vector(
             const dbz: bool = @reduce(.Or, d);
             if (dbz) return VError.DivideByZero;
 
-            self.data = self.as() / b;
+            self.data = self.simd() / b;
             return self;
         }
 
@@ -524,7 +548,7 @@ pub fn Vector(
         ///
         /// < Self: Quotient Vector
         pub inline fn divided(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) !Self {
             return (try self.clone().ptr().divide(other_)).*;
@@ -548,7 +572,7 @@ pub fn Vector(
             const dbz: bool = @reduce(.Or, d);
             if (dbz) return VError.DivideByZero;
 
-            self.data = @mod(self.as(), b);
+            self.data = @mod(self.simd(), b);
             return self;
         }
 
@@ -560,7 +584,7 @@ pub fn Vector(
         ///
         /// < Self: Modulus Vector
         pub inline fn moduloed(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) !Self {
             return (try self.clone().ptr().modulo(other_)).*;
@@ -584,7 +608,7 @@ pub fn Vector(
             const dbz: bool = @reduce(.Or, d);
             if (dbz) return VError.DivideByZero;
 
-            self.data = @rem(self.as(), b);
+            self.data = @rem(self.simd(), b);
             return self;
         }
 
@@ -596,7 +620,7 @@ pub fn Vector(
         ///
         /// < Self: Remainder Vector
         pub inline fn remaindered(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) !Self {
             return (try self.clone().ptr().remainder(other_)).*;
@@ -615,7 +639,7 @@ pub fn Vector(
         ) B {
             const b: V = vectorFromAny(other_, 0);
 
-            return self.as() < b;
+            return self.simd() < b;
         }
 
         /// Comparison scalar of less than for vectors by components
@@ -646,7 +670,7 @@ pub fn Vector(
         ) B {
             const b: V = vectorFromAny(other_, 0);
 
-            return self.as() <= b;
+            return self.simd() <= b;
         }
 
         /// Comparison scalar of less than or equal for vectors by components
@@ -677,7 +701,7 @@ pub fn Vector(
         ) B {
             const b: V = vectorFromAny(other_, 0);
 
-            return self.as() > b;
+            return self.simd() > b;
         }
 
         /// Comparison scalar of greater than for vectors by components
@@ -708,7 +732,7 @@ pub fn Vector(
         ) B {
             const b: V = vectorFromAny(other_, 0);
 
-            return self.as() >= b;
+            return self.simd() >= b;
         }
 
         /// Comparison scalar of greater than or equal for vectors by components
@@ -739,7 +763,7 @@ pub fn Vector(
         ) B {
             const b: V = vectorFromAny(other_, 0);
 
-            return self.as() == b;
+            return self.simd() == b;
         }
 
         /// Comparison scalar of equality for vectors by components
@@ -781,7 +805,7 @@ pub fn Vector(
             const t: Y = tolerance orelse if (Y == .float) std.math.floatEps(T) else 0;
             const b: V = vectorFromAny(other_, 0);
 
-            const c: @Vector(N, Y) = @abs(self.as() - b);
+            const c: @Vector(N, Y) = @abs(self.simd() - b);
             const d: @Vector(N, Y) = @splat(t);
 
             return c <= d;
@@ -819,7 +843,7 @@ pub fn Vector(
             other_: anytype,
         ) T {
             const b: V = vectorFromAny(other_, 0);
-            const c: V = self.as() * b;
+            const c: V = self.simd() * b;
 
             return @reduce(.Add, c);
         }
@@ -844,7 +868,7 @@ pub fn Vector(
                 }
                 break :getMask output;
             };
-            const b: @Vector(N * N, T) = @shuffle(T, self.as(), undefined, mask);
+            const b: @Vector(N * N, T) = @shuffle(T, self.simd(), undefined, mask);
 
             return a * b;
         }
@@ -960,7 +984,7 @@ pub fn Vector(
                 if (res_info != .float) @compileError("ResultT must be a float type for float vectors");
             }
             const b: V = vectorFromAny(other_, 0);
-            const diff = self.as() - b;
+            const diff = self.simd() - b;
 
             const RVec = @Vector(N, ResultT);
             const wide: RVec = if (isInt) @intCast(@abs(diff)) else @floatCast(@abs(diff));
@@ -1003,13 +1027,13 @@ pub fn Vector(
             const max_vec: V = @max(a, b);
 
             const greater_min: B = switch (bounds_[0]) {
-                '[' => min_vec <= self.as(),
-                '(' => min_vec < self.as(),
+                '[' => min_vec <= self.simd(),
+                '(' => min_vec < self.simd(),
                 else => unreachable,
             };
             const less_max: B = switch (bounds_[1]) {
-                ']' => self.as() <= max_vec,
-                ')' => self.as() < max_vec,
+                ']' => self.simd() <= max_vec,
+                ')' => self.simd() < max_vec,
                 else => unreachable,
             };
 
@@ -1026,7 +1050,7 @@ pub fn Vector(
             return switch (@typeInfo(T)) {
                 .float => @sqrt(self.inner(self)),
                 .int => @sqrt(@as(R, @floatFromInt(self.inner(self)))),
-                else => @compileError("Vector element type must be numeric"),
+                else => unreachable,
             };
         }
 
@@ -1047,12 +1071,12 @@ pub fn Vector(
         pub inline fn normalize(
             self: *Self,
         ) !*Self {
-            const a = if (isInt) Vector(f32, N).from(self.data) else self;
+            const a = if (isInt) Vector(R, N).from(self.data) else self;
             const v_len = a.length();
             if (v_len == 0) return VError.DivideByZero;
 
             const b = @as(@Vector(N, @TypeOf(v_len)), @splat(v_len));
-            const result = a.as() / b;
+            const result = a.simd() / b;
 
             self.data = if (isInt) @as(V, @intFromFloat(@round(result))) else result;
             return self;
@@ -1064,10 +1088,21 @@ pub fn Vector(
         ///
         /// < Self: Normalized Vector
         pub inline fn normalized(
-            self: *Self,
+            self: *const Self,
         ) !Self {
             return (try self.clone().ptr().normalize()).*;
         }
+
+        // pub inline fn isNormalized(
+        //     self: *const Self,
+        // ) bool {
+        //     const len_ = self.length();
+        //     return switch (@typeInfo(T)) {
+        //         .float => std.math.approxEqual(len, 1.0, std.math.floatEps(T)),
+        //         .int => len == 1,
+        //         else => @compileError("Vector element type must be numeric"),
+        //     };
+        // }
 
         /// Update Vector with Sign of components
         /// Sign of 0 = 0
@@ -1076,7 +1111,7 @@ pub fn Vector(
         pub inline fn signZ(
             self: *Self,
         ) *Self {
-            const comps = self.as();
+            const comps = self.simd();
             const abs = @abs(comps);
             var sabs = if (isInt) @as(V, @intCast(abs)) else abs;
             const equals = sabs == vectorFromAny(0, 0);
@@ -1104,7 +1139,7 @@ pub fn Vector(
             self: *Self,
         ) *Self {
             _ = self.signZ();
-            const comps = self.as();
+            const comps = self.simd();
             const equals = comps == vectorFromAny(0, 0);
             self.data = @select(T, equals, vectorFromAny(1, 0), comps);
             return self;
@@ -1126,7 +1161,7 @@ pub fn Vector(
         pub inline fn absolute(
             self: *Self,
         ) *Self {
-            self.data = if (isInt) @as(V, @intCast(@abs(self.as()))) else @abs(self.as());
+            self.data = if (isInt) @as(V, @intCast(@abs(self.simd()))) else @abs(self.simd());
             return self;
         }
 
@@ -1202,7 +1237,7 @@ pub fn Vector(
             other_: anytype,
         ) T {
             const b: V = vectorFromAny(other_, 0);
-            const c: V = if (isInt) @intCast(@abs(self.as() - b)) else @abs(self.as() - b);
+            const c: V = if (isInt) @intCast(@abs(self.simd() - b)) else @abs(self.simd() - b);
 
             return @reduce(.Add, c);
         }
@@ -1237,7 +1272,7 @@ pub fn Vector(
         ///
         /// < Self: Interpolated Vector
         pub inline fn interpolated(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
             time_: f32,
         ) Self {
@@ -1250,7 +1285,7 @@ pub fn Vector(
         pub inline fn maximum(
             self: *const Self,
         ) T {
-            return @reduce(.Max, self.as());
+            return @reduce(.Max, self.simd());
         }
 
         /// Minimum scalar of a vector
@@ -1259,7 +1294,7 @@ pub fn Vector(
         pub inline fn minimum(
             self: *const Self,
         ) T {
-            return @reduce(.Min, self.as());
+            return @reduce(.Min, self.simd());
         }
 
         /// Update Vector with maximum components of either vectors
@@ -1275,7 +1310,7 @@ pub fn Vector(
         ) *Self {
             const b: V = vectorFromAny(other_, 0);
 
-            self.data = @max(self.as(), b);
+            self.data = @max(self.simd(), b);
             return self;
         }
 
@@ -1287,7 +1322,7 @@ pub fn Vector(
         ///
         /// < Self: Maximum Vector
         pub inline fn maximumOfed(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) Self {
             return self.clone().ptr().maximumOf(other_).*;
@@ -1306,7 +1341,7 @@ pub fn Vector(
         ) *Self {
             const b: V = vectorFromAny(other_, 0);
 
-            self.data = @min(self.as(), b);
+            self.data = @min(self.simd(), b);
             return self;
         }
 
@@ -1318,7 +1353,7 @@ pub fn Vector(
         ///
         /// < Self: Minimum Vector
         pub inline fn minimumOfed(
-            self: *Self,
+            self: *const Self,
             other_: anytype,
         ) Self {
             return self.clone().ptr().minimumOf(other_).*;
@@ -1330,7 +1365,7 @@ pub fn Vector(
         pub inline fn maximize(
             self: *Self,
         ) *Self {
-            self.data = @splat(@reduce(.Max, self.as()));
+            self.data = @splat(@reduce(.Max, self.simd()));
             return self;
         }
 
@@ -1338,7 +1373,7 @@ pub fn Vector(
         ///
         /// < Self: maximized Vector
         pub inline fn maximized(
-            self: *Self,
+            self: *const Self,
         ) Self {
             return self.clone().ptr().maximize().*;
         }
@@ -1349,7 +1384,7 @@ pub fn Vector(
         pub inline fn minimize(
             self: *Self,
         ) *Self {
-            self.data = @splat(@reduce(.Min, self.as()));
+            self.data = @splat(@reduce(.Min, self.simd()));
             return self;
         }
 
@@ -1357,7 +1392,7 @@ pub fn Vector(
         ///
         /// < Self: minimized Vector
         pub inline fn minimized(
-            self: *Self,
+            self: *const Self,
         ) Self {
             return self.clone().ptr().minimize().*;
         }
@@ -1371,7 +1406,7 @@ pub fn Vector(
             self: *Self,
         ) *Self {
             if (isInt) @compileError("Operation not supported for integral vectors");
-            const a = self.as();
+            const a = self.simd();
             const b: V = @splat(1);
 
             self.data = b / a;
@@ -1397,7 +1432,7 @@ pub fn Vector(
         ) *Self {
             const b: V = @splat(-1);
 
-            self.data = self.as() * b;
+            self.data = self.simd() * b;
             return self;
         }
 
@@ -1419,7 +1454,7 @@ pub fn Vector(
             self: *Self,
         ) *Self {
             if (isInt) @compileError("Operation not supported for integral vectors");
-            const a = self.as();
+            const a = self.simd();
             const b: V = @splat(-1);
 
             self.data = b / a;
@@ -1454,7 +1489,7 @@ pub fn Vector(
             const min_v = vectorFromAny(min_, 0);
             const max_v = vectorFromAny(max_, 0);
 
-            self.data = @min(max_v, @max(min_v, self.as()));
+            self.data = @min(max_v, @max(min_v, self.simd()));
             return self;
         }
 
@@ -1468,37 +1503,276 @@ pub fn Vector(
         ///
         /// < Self: Clamped Vector
         pub inline fn clamped(
-            self: *Self,
+            self: *const Self,
             min_: anytype,
             max_: anytype,
         ) Self {
             return self.clone().ptr().clamp(min_, max_).*;
         }
 
-        pub inline fn project() void {}
+        pub inline fn project(
+            self: *Self,
+            other_: anytype,
+        ) *Self {
+            const b: V = vectorFromAny(other_, 0);
+            const denom: T = @reduce(.Add, b * b);
+            self.data = if (denom == 0) @as(V, @splat(0)) else blk: {
+                const numer = self.inner(b);
+                const _scalar = numer / denom;
+                break :blk @as(V, @splat(_scalar)) * b;
+            };
 
-        /// Vector to string
+            return self;
+        }
+
+        pub inline fn projected(
+            self: *const Self,
+            other_: anytype,
+        ) Self {
+            return self.clone().ptr().project(other_).*;
+        }
+
+        // min axis index
+        pub inline fn minAxisIndex(
+            self: *const Self,
+        ) usize {
+            const min_vec: V = @splat(self.minimum());
+            const min_bool: BoolInt = @bitCast(self.simd() == min_vec);
+            return @ctz(min_bool);
+        }
+
+        // max axis index
+        pub inline fn maxAxisIndex(
+            self: *const Self,
+        ) usize {
+            const max_vec: V = @splat(self.maximum());
+            const max_bool: BoolInt = @bitCast(self.simd() == max_vec);
+            return @ctz(max_bool);
+        }
+
+        // limit_length
+        pub inline fn clampLength(
+            self: *Self,
+            min_length_: ?scalar(T),
+            max_length_: ?scalar(T),
+        ) !*Self {
+            if (min_length_ == null and max_length_ == null) return self;
+            if (min_length_ != null and max_length_ != null and min_length_.? > max_length_.?) {
+                @compileError("min_length cannot be greater than max_length");
+            }
+            const a = if (isInt) Vector(R, N).from(self.data) else self;
+            const _len = self.length();
+            if (max_length_ != null and max_length_.? < _len) {
+                _ = try a.normalize();
+                const result = a.simd() * @as(V, @splat(max_length_.?));
+                self.data = if (isInt) @as(V, @intFromFloat(@round(result))) else result;
+            } else if (min_length_ != null and _len < min_length_.?) {
+                _ = try a.normalize();
+                const result = a.simd() * @as(V, @splat(min_length_.?));
+                self.data = if (isInt) @as(V, @intFromFloat(@round(result))) else result;
+            }
+            return self;
+        }
+
+        pub inline fn clampedLength(
+            self: *const Self,
+            min_length_: ?T,
+            max_length_: ?T,
+        ) !Self {
+            return (try self.clone().ptr().clampLength(min_length_, max_length_)).*;
+        }
+
+        // angle_to
+        // signed_angle_to
+        // angle_to_point
+        // plane project
+        // slerp
+        // cubic interpolation
+        // cubic interpoaltion in time
+        // bezier interpolate
+        // bezier derivative
+
+        // move toward
+        pub inline fn moveToward(
+            self: *Self,
+            other_: anytype,
+            delta_: scalar(T),
+        ) *Self {
+            const other = vectorFromAny(other_, 0);
+            const dir = other - self.simd();
+            const _len =
+                if (isInt) @sqrt(@as(R, @floatFromInt(@reduce(.Add, dir * dir)))) //
+                else @sqrt(@reduce(.Add, dir * dir));
+            if (_len <= delta_ or _len < std.math.floatEps(scalar(T))) {
+                self.data = other;
+            } else {
+                self.data = if (isInt) blk: {
+                    const vect = @Vector(N, R);
+                    const dist = (@as(vect, @floatFromInt(dir)) / @as(vect, @splat(_len))) *
+                        @as(vect, @splat(delta_));
+                    break :blk self.simd() + @as(V, @intFromFloat(@round(dist)));
+                } else blk: {
+                    const dist = (dir / @as(V, @splat(_len))) * @as(V, @splat(delta_));
+                    break :blk self.simd() + dist;
+                };
+            }
+            return self;
+        }
+
+        // moved toward
+        pub inline fn movedToward(
+            self: *const Self,
+            other_: anytype,
+            delta_: f32,
+        ) Self {
+            return self.clone().ptr().moveToward(other_, delta_).*;
+        }
+
+        //
+        // slide
+        // slid
+        //
+        // bounce
+        // bounced
+        //
+        // reflect
+        // reflected
+        //
+        // angle
+        // from_angle
+        //
+        // rotate
+        // rotated
+        //
+
+        /// Update Vector with floor of components
+        /// Integer vectors are unchanged
         ///
-        /// Convert vector to formatted string
-        /// Format is `Vector{N}({d}, ...)` where N is vector size
+        /// < *Self: Updated Current Vector
+        pub inline fn floor(
+            self: *Self,
+        ) *Self {
+            if (isInt) return self;
+            self.data = @floor(self.simd());
+            return self;
+        }
+
+        /// Copy of current Vector with floor of components
+        /// Integer vectors are unchanged
         ///
-        /// > fmt: []const u8
-        /// > options: std.fmt.FormatOptions
+        /// < Self: Floored Vector
+        pub inline fn floored(
+            self: *const Self,
+        ) Self {
+            return self.clone().ptr().floor().*;
+        }
+
+        /// Update Vector with ceil of components
+        /// Integer vectors are unchanged
+        ///
+        /// < *Self: Updated Current Vector
+        pub inline fn ceil(
+            self: *Self,
+        ) *Self {
+            if (isInt) return self;
+            self.data = @ceil(self.simd());
+            return self;
+        }
+
+        /// Copy of current Vector with ceil of components
+        /// Integer vectors are unchanged
+        ///
+        /// < Self: Ceiled Vector
+        pub inline fn ceiled(
+            self: *const Self,
+        ) Self {
+            return self.clone().ptr().ceil().*;
+        }
+
+        /// Update Vector with round of components
+        /// Integer vectors are unchanged
+        ///
+        /// < *Self: Updated Current Vector
+        pub inline fn round(
+            self: *Self,
+        ) *Self {
+            if (isInt) return self;
+            self.data = @round(self.simd());
+            return self;
+        }
+
+        /// Copy of current Vector with round of components
+        /// Integer vectors are unchanged
+        ///
+        /// < Self: Rounded Vector
+        pub inline fn rounded(
+            self: *const Self,
+        ) Self {
+            return self.clone().ptr().round().*;
+        }
+
+        /// Update Vector with snapped components to increment
+        /// For integral type Vector, components are rounded up or down
+        ///
+        pub inline fn snap(
+            self: *Self,
+            increment_: anytype,
+        ) *Self {
+            const increment = vectorFromAny(increment_, 1);
+
+            // any 0 increment values result in no snapping
+            var safe_mask = increment == @as(V, @splat(0));
+            var safe_increment = @select(T, safe_mask, self.simd(), increment);
+
+            // if initial component was 0, set to 1 to avoid division by zero
+            safe_mask = safe_increment == @as(V, @splat(0));
+            safe_increment = @select(T, safe_mask, @as(V, @splat(1)), safe_increment);
+
+            if (isInt) {
+                const signs = self.signed().simd();
+                const base = @divTrunc(self.simd(), safe_increment) * safe_increment;
+                const mod = @rem(self.simd(), safe_increment);
+                const double = mod * @as(V, @splat(2));
+                const add_mask = @abs(double) >= @abs(safe_increment);
+                const signed_increment = signs * @as(V, @intCast(@abs(safe_increment)));
+                self.data = @select(T, add_mask, base + signed_increment, base);
+            } else {
+                self.data = @round(self.simd() / safe_increment) * safe_increment;
+            }
+            return self;
+        }
+
+        // snapped
+        pub inline fn snapped(
+            self: *const Self,
+            increment_: anytype,
+        ) Self {
+            return self.clone().ptr().snap(increment_).*;
+        }
+
+        // aspect
+        // hash
+
+        /// Vector formatted print function
+        ///
+        /// Print vector as formatted string
+        /// Format is `VectorN({d}, ...)` where N is vector size
+        ///
         /// > writer: anytype
         ///
         /// < void
-        pub fn format( // zig fmt: off
+        pub fn format(
             self: *const Self,
-            writer: anytype
+            writer_: anytype,
         ) !void {
-            try writer.print("Vector{d}(", .{N});
+            try writer_.print("Vector{d}(", .{N});
             for (self.data, 0..) |v, i| {
-                if (i > 0) try writer.print(", ", .{});
-                try writer.print("{d}", .{v});
+                if (i > 0) try writer_.print(", ", .{});
+                try writer_.print("{d}", .{v});
             }
-            try writer.print(")", .{});
+            try writer_.print(")", .{});
         }
-    }; // zig fmt: on
+    };
 }
 
 inline fn isNumeric(comptime T: type) bool {
@@ -1508,193 +1782,20 @@ inline fn isNumeric(comptime T: type) bool {
     };
 }
 
-// zig fmt: off
-pub const Component = enum(i32) { x = 0, y, z, w, };
-// zig fmt: on
-
-/// Convenience function to create a Vec2
-pub fn Vector2(comptime T: type) type {
-    const baseType: type = Vector(T, 2);
-
-    return struct {
-        x: T,
-        y: T,
-
-        const Self = @This();
-
-        pub inline fn as(self: *const Self) *baseType {
-            return @as(*baseType, @ptrCast(@constCast(self)));
-        }
-
-        pub inline fn init() Self {
-            return .{ .x = undefined, .y = undefined };
-        }
-
-        pub fn from(value: anytype) Self {
-            return switch (@TypeOf(value)) {
-                Self => value,
-                baseType => base: {
-                    const bytes = toBytes(value);
-                    break :base bytesToValue(Self, &bytes);
-                },
-                else => vector: {
-                    const bytes = toBytes(baseType.vectorFromAny(value, 0));
-                    break :vector bytesToValue(Self, &bytes);
-                },
-            };
-        }
-
-        pub fn to(self: Self) baseType {
-            const bytes = toBytes(self);
-            return bytesToValue(baseType, &bytes);
-        }
-
-        pub fn cross(self: Self) Self {
-            return .{
-                .x = self.y,
-                .y = -self.x,
-            };
-        }
-    };
-}
-
-/// Convenience function to create a Vec3
-pub fn Vector3(comptime T: type) type {
-    const baseType: type = Vector(T, 3);
-
-    return struct {
-        x: T,
-        y: T,
-        z: T,
-
-        const Self = @This();
-
-        pub inline fn as(self: *const Self) *baseType {
-            return @as(*baseType, @ptrCast(@constCast(self)));
-        }
-
-        pub inline fn init() Self {
-            return .{ .x = undefined, .y = undefined, .z = undefined };
-        }
-
-        pub fn from(value: anytype) Self {
-            return switch (@TypeOf(value)) {
-                Self => value,
-                baseType => base: {
-                    const bytes = toBytes(value);
-                    break :base bytesToValue(Self, &bytes);
-                },
-                else => vector: {
-                    const bytes = toBytes(baseType.vectorFromAny(value, 0));
-                    break :vector bytesToValue(Self, &bytes);
-                },
-            };
-        }
-
-        pub fn to(self: Self) baseType {
-            const bytes = toBytes(self);
-            return bytesToValue(baseType, &bytes);
-        }
-
-        pub inline fn cross(self: Self, other: Self) Self {
-            return .{
-                .x = self.y * other.z - self.z * other.y,
-                .y = self.z * other.x - self.x * other.z,
-                .z = self.x * other.y - self.y * other.x,
-            };
-        }
-
-        // faster at 10 Billion iterations
-        // pub inline fn crossSimd(self: Self, other: Self) Self {
-        //     const a: @Vector(3, T) = self.as().data;
-        //     const b: @Vector(3, T) = other.as().data;
-        //     const m1: @Vector(3, T) = .{ 1, 2, 0 };
-        //     const m2: @Vector(3, T) = .{ 2, 0, 1 };
-        //     const e1: @Vector(3, T) = @shuffle(T, a, undefined, m1);
-        //     const e2: @Vector(3, T) = @shuffle(T, b, undefined, m2);
-        //     const e3: @Vector(3, T) = @shuffle(T, a, undefined, m2);
-        //     const e4: @Vector(3, T) = @shuffle(T, b, undefined, m1);
-        //
-        //     return Self.init(e1 * e2 - e3 * e4);
-        // }
-    };
-}
-
-/// Convenience function to create a Vec4
-pub fn Vector4(comptime T: type) type {
-    const baseType: type = Vector(T, 4);
-
-    return struct {
-        x: T,
-        y: T,
-        z: T,
-        w: T,
-
-        const Self = @This();
-
-        pub inline fn as(self: *const Self) *baseType {
-            return @as(*baseType, @ptrCast(@constCast(self)));
-        }
-
-        pub inline fn init() Self {
-            return .{ .x = undefined, .y = undefined, .z = undefined, .w = undefined };
-        }
-
-        pub fn from(value: anytype) Self {
-            return switch (@TypeOf(value)) {
-                Self => value,
-                baseType => base: {
-                    const bytes = toBytes(value);
-                    break :base bytesToValue(Self, &bytes);
-                },
-                else => vector: {
-                    const bytes = toBytes(baseType.vectorFromAny(value, 0));
-                    break :vector bytesToValue(Self, &bytes);
-                },
-            };
-        }
-
-        pub fn to(self: Self) baseType {
-            const bytes = toBytes(self);
-            return bytesToValue(baseType, &bytes);
-        }
-    };
-}
-
-// Definitions
 const std = @import("std");
 const testing = std.testing;
 
 const toBytes = std.mem.toBytes;
 const bytesToValue = std.mem.bytesToValue;
+const Vector2 = @import("vector2.zig").Vector2;
+const Vector3 = @import("vector3.zig").Vector3;
+const Vector4 = @import("vector4.zig").Vector4;
 
 // Tests
 // Vector
 
 // NOTE: Fuzz testing not yet available on windows/macos
 // test "Fuzz" {}
-
-test "VectorN" {
-    const v1 = Vector2(f32).from(.{ 1.0, 2.0 });
-    try testing.expectEqual(1.0, v1.x);
-    try testing.expectEqual(2.0, v1.y);
-
-    const v2 = Vector2(f32).from(0.0);
-    try testing.expectEqual(0.0, v2.x);
-    try testing.expectEqual(0.0, v2.y);
-
-    const v3 = Vector2(f32).from(v1);
-    try testing.expectEqual(1.0, v3.x);
-    try testing.expectEqual(2.0, v3.y);
-
-    const v4 = Vector2(f32).from(v1.as());
-    try testing.expectEqual(1.0, v4.x);
-    try testing.expectEqual(2.0, v4.y);
-
-    const v5 = Vector2(f32).from(v1.as().*);
-    try testing.expectEqual(1.0, v5.x);
-    try testing.expectEqual(2.0, v5.y);
-}
 
 test "Initialize" {
 
@@ -1704,16 +1805,24 @@ test "Initialize" {
 
     // from VectorN
     {
-        const v1 = Vector2(f32).from(.{ 1.0, 2.0 });
-        const v2 = Vector(f32, 2).from(v1);
-        try testing.expectEqual(Vector(f32, 2).from(.{ 1.0, 2.0 }), v2);
+        // const v1 = Vector2(f32).from(.{ 1.0, 2.0 });
+        // const v2 = Vector(f32, 2).from(v1);
+        // try testing.expectEqual(Vector(f32, 2).from(.{ 1.0, 2.0 }), v2);
+        //
+        // const v3 = Vector3(f32).from(.{ 1.0, 2.0, 3.0 });
+        // const v4 = Vector(f32, 3).from(v3);
+        // try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 }), v4);
+        //
+        // const v5 = Vector4(f32).from(.{ 1.0, 2.0, 3.0, 4.0 });
+        // const v6 = Vector(f32, 4).from(v5);
+        // try testing.expectEqual(Vector(f32, 4).from(.{ 1.0, 2.0, 3.0, 4.0 }), v6);
     }
 
     // casting
     {
         const v1 = Vector(f32, 3).from(a1);
         const v2: @Vector(3, f32) = .{ 1.0, 2.0, 3.0 };
-        try testing.expectEqual(v2, v1.as());
+        try testing.expectEqual(v2, v1.simd());
     }
 
     // empty initialization
@@ -1839,8 +1948,12 @@ test "Initialize" {
         const v1 = Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 });
         const v2 = v1.toSize(2, 0);
         const v3 = v1.toSize(4, 0);
+        var v4 = v1.toSize(3, 0);
         try testing.expectEqual([2]f32{ 1.0, 2.0 }, v2.data);
         try testing.expectEqual([4]f32{ 1.0, 2.0, 3.0, 0.0 }, v3.data);
+        v4.data[0] = 4.0;
+        try testing.expectEqual([3]f32{ 4.0, 2.0, 3.0 }, v4.data);
+        try testing.expectEqual([3]f32{ 1.0, 2.0, 3.0 }, v1.data);
     }
 
     // unit vectors
@@ -2270,6 +2383,129 @@ test "Clamping" {
     var v2 = Vector(i64, 3).from(.{ 1, 2, 4 });
     try testing.expectEqual(Vector(i64, 3).from(.{ 1, 2, 3 }), v2.clamped(minf, maxf));
     try testing.expectEqual(Vector(i64, 3).from(.{ 1, 2, 3 }), v2.clamped(mini, maxi));
+}
+
+test "Projection" {
+    var v1 = Vector(f32, 3).from(.{ 1.0, 2.0, 2.0 });
+    const v2 = Vector(f32, 3).from(.{ 4.0, 2.0, 2.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ 2.0, 1.0, 1.0 }), v1.projected(v2));
+    _ = v1.project(v2);
+    try testing.expectEqual(Vector(f32, 3).from(.{ 2.0, 1.0, 1.0 }), v1);
+}
+
+test "Min/Max Axis Index" {
+    const v1 = Vector(f32, 3).from(.{ 1.0, 2.0, 0.5 });
+    try testing.expectEqual(2, v1.minAxisIndex());
+    try testing.expectEqual(1, v1.maxAxisIndex());
+
+    const v2 = Vector(i64, 4).from(.{ 3, 1, 4, 2 });
+    try testing.expectEqual(1, v2.minAxisIndex());
+    try testing.expectEqual(2, v2.maxAxisIndex());
+}
+
+test "Clamp Length" {
+    var v1 = Vector(f32, 3).from(.{ -2.0, 0.0, 0.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ -1.0, 0.0, 0.0 }), v1.clampedLength(1.0, null));
+    _ = try v1.clampLength(1.0, null);
+    try testing.expectEqual(Vector(f32, 3).from(.{ -1.0, 0.0, 0.0 }), v1);
+}
+
+test "Ceil" {
+    var v1 = Vector(f32, 3).from(.{ 1.2, 2.5, 3.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ 2.0, 3.0, 3.0 }), v1.ceiled());
+    _ = v1.ceil();
+    try testing.expectEqual(Vector(f32, 3).from(.{ 2.0, 3.0, 3.0 }), v1);
+
+    var v2 = Vector(f32, 3).from(.{ -1.2, -2.5, -3.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ -1.0, -2.0, -3.0 }), v2.ceiled());
+    _ = v2.ceil();
+    try testing.expectEqual(Vector(f32, 3).from(.{ -1.0, -2.0, -3.0 }), v2);
+}
+
+test "Floor" {
+    var v1 = Vector(f32, 3).from(.{ 1.2, 2.5, 3.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 }), v1.floored());
+    _ = v1.floor();
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 }), v1);
+
+    var v2 = Vector(f32, 3).from(.{ -1.2, -2.5, -3.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ -2.0, -3.0, -3.0 }), v2.floored());
+    _ = v2.floor();
+    try testing.expectEqual(Vector(f32, 3).from(.{ -2.0, -3.0, -3.0 }), v2);
+}
+
+test "Round" {
+    var v1 = Vector(f32, 3).from(.{ 1.2, 2.5, 3.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 3.0, 3.0 }), v1.rounded());
+    _ = v1.round();
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 3.0, 3.0 }), v1);
+
+    var v2 = Vector(f32, 3).from(.{ -1.2, -2.5, -3.0 });
+    try testing.expectEqual(Vector(f32, 3).from(.{ -1.0, -3.0, -3.0 }), v2.rounded());
+    _ = v2.round();
+    try testing.expectEqual(Vector(f32, 3).from(.{ -1.0, -3.0, -3.0 }), v2);
+}
+
+test "Snap" {
+    {
+        var v1 = Vector(f32, 5).from(.{ 1.3, 2.7, 3.5, 5.0, 0.0 });
+        const grid_pos = Vector(f32, 5).from(.{ 1.0, 0.5, 2.0, 0.0, 2.0 });
+        const grid_neg = Vector(f32, 5).from(.{ -1.0, -0.5, -2.0, 0.0, -2.0 });
+        try testing.expectEqual(Vector(f32, 5).from(.{ 1.0, 2.5, 4.0, 5.0, 0.0 }), v1.snapped(grid_pos));
+        _ = v1.snap(grid_pos);
+        try testing.expectEqual(Vector(f32, 5).from(.{ 1.0, 2.5, 4.0, 5.0, 0.0 }), v1);
+
+        var v2 = Vector(f32, 5).from(.{ -1.3, -2.7, -3.5, -5.0, 0.0 });
+        try testing.expectEqual(Vector(f32, 5).from(.{ -1.0, -2.5, -4.0, -5.0, 0.0 }), v2.snapped(grid_pos));
+        _ = v2.snap(grid_pos);
+        try testing.expectEqual(Vector(f32, 5).from(.{ -1.0, -2.5, -4.0, -5.0, 0.0 }), v2);
+
+        try testing.expectEqual(Vector(f32, 5).from(.{ 1.0, 2.5, 4.0, 5.0, 0.0 }), v1.snapped(grid_neg));
+        _ = v1.snap(grid_neg);
+        try testing.expectEqual(Vector(f32, 5).from(.{ 1.0, 2.5, 4.0, 5.0, 0.0 }), v1);
+
+        try testing.expectEqual(Vector(f32, 5).from(.{ -1.0, -2.5, -4.0, -5.0, 0.0 }), v2.snapped(grid_neg));
+        _ = v2.snap(grid_neg);
+        try testing.expectEqual(Vector(f32, 5).from(.{ -1.0, -2.5, -4.0, -5.0, 0.0 }), v2);
+    }
+
+    {
+        var v1 = Vector(i64, 5).from(.{ 3, 7, 10, 5, 0 });
+        const grid_i_pos = Vector(i64, 5).from(.{ 2, 3, 4, 0, 2 });
+        const grid_i_neg = Vector(i64, 5).from(.{ -2, -3, -4, 0, -2 });
+
+        try testing.expectEqual(Vector(i64, 5).from(.{ 4, 6, 12, 5, 0 }), v1.snapped(grid_i_pos));
+        _ = v1.snap(grid_i_pos);
+        try testing.expectEqual(Vector(i64, 5).from(.{ 4, 6, 12, 5, 0 }), v1);
+
+        var v2 = Vector(i64, 5).from(.{ -3, -7, -10, -5, 0 });
+        try testing.expectEqual(Vector(i64, 5).from(.{ -4, -6, -12, -5, 0 }), v2.snapped(grid_i_pos));
+        _ = v2.snap(grid_i_pos);
+        try testing.expectEqual(Vector(i64, 5).from(.{ -4, -6, -12, -5, 0 }), v2);
+
+        try testing.expectEqual(Vector(i64, 5).from(.{ 4, 6, 12, 5, 0 }), v1.snapped(grid_i_neg));
+        _ = v1.snap(grid_i_neg);
+        try testing.expectEqual(Vector(i64, 5).from(.{ 4, 6, 12, 5, 0 }), v1);
+
+        try testing.expectEqual(Vector(i64, 5).from(.{ -4, -6, -12, -5, 0 }), v2.snapped(grid_i_neg));
+        _ = v2.snap(grid_i_neg);
+        try testing.expectEqual(Vector(i64, 5).from(.{ -4, -6, -12, -5, 0 }), v2);
+    }
+}
+
+test "Move Toward" {
+    var v1 = Vector(f32, 2).from(.{ 1.0, 0.0 });
+    const v2 = Vector(f32, 2).from(.{ 4.0, 0.0 });
+    try testing.expectEqual(Vector(f32, 2).from(.{ 1.5, 0.0 }), v1.movedToward(v2, 0.5));
+    // try testing.expectEqual(Vector(f32, 2).from(.{ 1.3535534, 1.3535534 }), v1.movedToward(v2, 0.5));
+    _ = v1.moveToward(v2, 0.5);
+    try testing.expectEqual(Vector(f32, 2).from(.{ 1.5, 0.0 }), v1);
+
+    var v3 = Vector(i64, 2).from(.{ 1, 0 });
+    const v4 = Vector(i64, 2).from(.{ 4, 0 });
+    try testing.expectEqual(Vector(i64, 2).from(.{ 3, 0 }), v3.movedToward(v4, 2.0));
+    _ = v3.moveToward(v4, 2.0);
+    try testing.expectEqual(Vector(i64, 2).from(.{ 3, 0 }), v3);
 }
 
 test "Formatting" {
