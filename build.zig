@@ -118,7 +118,7 @@ pub fn build(b: *std.Build) void {
     // testing step
     const vec_lib_unit_test = b.addTest(.{
         .root_module = b.createModule(.{
-            .root_source_file = b.path("lib/core/math/vector.zig"),
+            .root_source_file = b.path("lib/qp.zig"),
             .target = target,
             .optimize = optimize,
         }),
