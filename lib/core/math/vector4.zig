@@ -584,6 +584,13 @@ pub fn Vector4(comptime T: type) type {
             return self.clone().ptr().normalize().*;
         }
 
+        /// Check if Vector4 is normalized to unit length
+        ///
+        /// < bool: Normalization boolean
+        pub inline fn isNormalized(self: *const Self) bool {
+            return self.base().isNormalized();
+        }
+
         /// Update Vector4 with Sign of components
         /// Sign of 0 = 0
         ///
@@ -877,13 +884,135 @@ pub fn Vector4(comptime T: type) type {
             return self.clone().ptr().clamp(min_, max_).*;
         }
 
-        pub inline fn project(self: *Self, other_: anytype) *Self {
-            _ = self.base().project(other_);
+        /// Update Vector4 with projection onto given normal vector
+        /// normal_ must be normalized
+        ///
+        /// > normal_: Self
+        ///     Vector4 to project onto
+        ///
+        /// < *Self: Projected Current Vector4
+        pub inline fn project(self: *Self, normal_: Self) *Self {
+            _ = self.base().project(normal_);
             return self;
         }
 
-        pub inline fn projected(self: *const Self, other_: anytype) Self {
-            return self.clone().ptr().project(other_).*;
+        /// New Vector4 projected onto given normal vector
+        /// normal_ must be normalized
+        ///
+        /// > other_: anytype
+        ///     Vector4 to project onto
+        ///
+        /// < Self: Projected Vector4
+        pub inline fn projected(self: *const Self, normal_: Self) Self {
+            return self.clone().ptr().project(normal_).*;
+        }
+
+        // Update Vector2 to its rejection for a given normal vector
+        // rejection is  perpendicular to projection on normal
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Normal Vector2 to reject from
+        //
+        // < *Self: Updated Current Vector2
+        pub inline fn reject(self: *const Self, normal_: Self) Self {
+            _ = self.base().reject(normal_);
+            return self;
+        }
+
+        // New Vector2 of its rejection for a given normal vector
+        // rejection is  perpendicular to projection on normal
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Normal Vector2 to reject from
+        //
+        // < Self: Rejected Vector2
+        pub inline fn rejected(self: *const Self, normal_: Self) Self {
+            return self.clone().ptr().reject(normal_).*;
+        }
+
+        /// Index of axis with minimum component
+        ///
+        /// < usize: Minimum axis index
+        pub inline fn minAxisIndex(self: *const Self) usize {
+            return self.base().minAxisIndex();
+        }
+
+        /// Index of axis with maximum component
+        ///
+        /// < usize: Maximum axis index
+        pub inline fn maxAxisIndex(self: *const Self) usize {
+            return self.base().maxAxisIndex();
+        }
+
+        // Update Vector2 with length clamped between min_length and max_length
+        // If vector length is 0, no changes are made
+        // For integer type Vector2, components are rounded up or down
+        //
+        // > min_length_: scalar(T)
+        //     Minimum length to clamp to
+        //
+        // > max_length_: scalar(T)
+        //     Maximum length to clamp to
+        //
+        // < *Self: Updated Current Vector2
+        pub inline fn clampLength(
+            self: *Self,
+            min_length_: scalar(T),
+            max_length_: scalar(T),
+        ) *Self {
+            _ = self.base().clampLength(min_length_, max_length_);
+            return self;
+        }
+
+        // New Vector2 with length clamped between min_length and max_length
+        // If vector length is 0, no changes are made
+        // For integer type Vector2, components are rounded up or down
+        //
+        // > min_length_: scalar(T)
+        //     Minimum length to clamp to
+        // > max_length_: scalar(T)
+        //     Maximum length to clamp to
+        //
+        // < Self: Clamped Length Vector2
+        pub inline fn clampedLength(
+            self: *const Self,
+            min_length_: scalar(T),
+            max_length_: scalar(T),
+        ) Self {
+            return self.clone().ptr().clampLength(min_length_, max_length_).*;
+        }
+
+        // Update Vector2 moving it toward other by delta units
+        // If distance to other is less than delta, sets to other
+        // other vector converterd from anytype
+        //
+        // > other: anytype
+        //     Vector2 to move toward
+        //
+        // > delta_: scalar(T)
+        //     Amount to move toward other
+        //
+        // < *Self: Updated Current Vector2
+        pub inline fn moveToward(self: *Self, other_: anytype, delta_: scalar(T)) *Self {
+            _ = self.base().moveToward(other_, delta_);
+            return self;
+        }
+
+        // New Vector2 moved toward other by delta units
+        // If distance to other is less than delta, sets to other
+        // other vector converterd from anytype
+        //
+        // > other_: anytype
+        //     Vector2 to move toward
+        //
+        // > delta_: scalar(T)
+        //     Amount to move toward other
+        //
+        // < Self: Moved Toward Vector2
+        pub inline fn movedToward(self: *const Self, other_: anytype, delta_: scalar(T)) Self {
+            return self.clone().ptr().moveToward(other_, delta_).*;
         }
 
         /// Vector4 to string

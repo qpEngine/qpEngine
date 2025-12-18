@@ -1,0 +1,106 @@
+  I. Vector
+
+
+    '::'  ':'               .
+     ':.  .'  ....   .... .::.   ...  ... ..
+      ::  : .:...::.:   '' ::  .:  ':. ::' ''
+       :::  ::     ::      ::  ::   :: ::
+        :    ':...' ':...' ':.' ':..:'.::.
+
+
+  I.i. Description
+
+A generic mathematical Vector type for integers or floats, of variable size.
+Operations perform using SIMD where applicable.
+
+
+  I.ii. Fields
+
+  - data
+
+
+  I.ii.A. Field Details
+
+[Field: data]&
+    The underlying array
+
+    [Type]: [N]T
+
+
+  II.iii. Methods
+
+  - init, from
+  - as, ptr, clone, toSize
+
+  - vectorFromAny, unitP, unitN, pick
+
+  - summate, summated
+  - subtract, subtracted
+  - multiply, multiplied
+  - divide, divided
+  - modulo, moduloed
+  - remainder, remaindered
+
+  - lesser, isLesser
+  - lesserEq, isLesserEq
+  - greater, isGreater
+  - greaterEq, isGreaterEq
+  - equal, isEqual
+  - approximate, isApproximate
+
+  - inner, outer1d, outer2d, cross
+  - determinant
+  - length, lengthSq
+  - normalize, normalized
+
+  - sign, signed
+  - directionTo, distanceTo, distanceToSq
+  - interpolate, interpolated
+
+  - maximum, minimum
+  - maximumOf, maximumOfed
+  - minimumOf, minimumOfed
+  - maximize, maximized
+  - minimize, minimized
+
+  - inverse, inversed
+  - negate, negated
+  - negInverse, negInversed
+  - clamp, clamped
+  - project
+  - format
+
+
+
+
+  II.iii.A. Method Details
+
+[Method: init]&
+    Creates a new RegexMatch object.
+
+    [Parameter: alloc]&
+        [Type]: Allocator
+
+
+[Method: deinit]&
+
+
+
+fn Vector2
+fn as
+fn init
+fn from
+fn to
+fn cross
+fn Vector3
+fn as
+fn init
+fn from
+fn to
+fn cross
+fn crossSimd
+fn Vector4
+fn as
+fn init
+fn from
+fn to

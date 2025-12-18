@@ -59,6 +59,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zmath = b.dependency("zmath", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    qp_lib.addImport("zmath", zmath.module("root"));
+
     // PCRE2 Regex Library
     const pcrez_lib = b.dependency("pcrez", .{
         .target = target,
@@ -124,6 +130,7 @@ pub fn build(b: *std.Build) void {
         }),
     });
     const run_vec_unit_tests = b.addRunArtifact(vec_lib_unit_test);
+    vec_lib_unit_test.root_module.addImport("zmath", zmath.module("root"));
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_vec_unit_tests.step);
