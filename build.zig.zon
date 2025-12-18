@@ -36,6 +36,11 @@
             .url = "git+https://github.com/zig-gamedev/zgui#22deaab3363ac0fd8f34b91a1cd66883199960f9",
             .hash = "zgui-0.6.0-dev--L6sZATybQCK2aBUnZ_5VKga-60UiZZ0v4e0T9doN4iu",
         },
+
+        .zmath = .{
+            .url = "git+https://github.com/zig-gamedev/zmath#3a5955b2b72cd081563fbb084eff05bffd1e3fbb",
+            .hash = "zmath-0.11.0-dev-wjwivdMsAwD-xaLj76YHUq3t9JDH-X16xuMTmnDzqbu2",
+        },
     },
 
     .paths = .{

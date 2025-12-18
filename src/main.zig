@@ -158,14 +158,14 @@ const sqw = 200.0 / @as(comptime_float, @floatFromInt(winWidth / 2));
 const vertices = [_]f32{
     // positions from top left CCW, coords from top right CW
     // pos           // coords // colors
-     sqw,  sqh, 0.0, 0.55, 0.55, 1.0, 0.0, 0.0, // top right
-     sqw, -sqh, 0.0, 0.55, 0.45, 0.0, 1.0, 0.0, // bottom right
-    -sqw, -sqh, 0.0, 0.45, 0.45, 0.0, 0.0, 1.0, // bottom left
-    -sqw,  sqh, 0.0, 0.45, 0.55, 1.0, 1.0, 0.0, // top left
-    //  sqw,  sqh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, // top right
-    //  sqw, -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // bottom right
-    // -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, // bottom left
-    // -sqw,  sqh, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, // top left
+     // sqw,  sqh, 0.0, 0.55, 0.55, 1.0, 0.0, 0.0, // top right
+     // sqw, -sqh, 0.0, 0.55, 0.45, 0.0, 1.0, 0.0, // bottom right
+    // -sqw, -sqh, 0.0, 0.45, 0.45, 0.0, 0.0, 1.0, // bottom left
+    // -sqw,  sqh, 0.0, 0.45, 0.55, 1.0, 1.0, 0.0, // top left
+     sqw,  sqh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, // top right
+     sqw, -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // bottom right
+    -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, // bottom left
+    -sqw,  sqh, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, // top left
 }; // zig fmt: on
 
 const indices = [_]u32{

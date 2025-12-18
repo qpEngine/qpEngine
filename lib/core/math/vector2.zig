@@ -588,7 +588,14 @@ pub fn Vector2(comptime T: type) type {
         ///
         /// < Self: Normalized Vector
         pub inline fn normalized(self: *const Self) !Self {
-            return self.clone().ptr().normalize().*;
+            return (try self.clone().ptr().normalize()).*;
+        }
+
+        /// Check if Vector2 is normalized to unit length
+        ///
+        /// < bool: Normalization boolean
+        pub inline fn isNormalized(self: *const Self) bool {
+            return self.base().isNormalized();
         }
 
         /// Update Vector2 with Sign of components
@@ -884,13 +891,135 @@ pub fn Vector2(comptime T: type) type {
             return self.clone().ptr().clamp(min_, max_).*;
         }
 
-        pub inline fn project(self: *Self, other_: anytype) *Self {
-            _ = self.base().project(other_);
+        /// Update Vector2 with projection onto given normal vector
+        /// normal_ must be normalized
+        ///
+        /// > normal_: Self
+        ///     Vector2 to project onto
+        ///
+        /// < *Self: Projected Current Vector2
+        pub inline fn project(self: *Self, normal_: Self) *Self {
+            _ = self.base().project(normal_.to());
             return self;
         }
 
-        pub inline fn projected(self: *const Self, other_: anytype) Self {
-            return self.clone().ptr().project(other_).*;
+        /// New Vector2 projected onto given normal vector
+        /// normal_ must be normalized
+        ///
+        /// > other_: anytype
+        ///     Vector2 to project onto
+        ///
+        /// < Self: Projected Vector2
+        pub inline fn projected(self: *const Self, normal_: Self) Self {
+            return self.clone().ptr().project(normal_).*;
+        }
+
+        // Update Vector2 to its rejection for a given normal vector
+        // rejection is  perpendicular to projection on normal
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Normal Vector2 to reject from
+        //
+        // < *Self: Updated Current Vector2
+        pub inline fn reject(self: *const Self, normal_: Self) Self {
+            _ = self.base().reject(normal_);
+            return self;
+        }
+
+        // New Vector2 of its rejection for a given normal vector
+        // rejection is  perpendicular to projection on normal
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Normal Vector2 to reject from
+        //
+        // < Self: Rejected Vector2
+        pub inline fn rejected(self: *const Self, normal_: Self) Self {
+            return self.clone().ptr().reject(normal_).*;
+        }
+
+        /// Index of axis with minimum component
+        ///
+        /// < usize: Minimum axis index
+        pub inline fn minAxisIndex(self: *const Self) usize {
+            return self.base().minAxisIndex();
+        }
+
+        /// Index of axis with maximum component
+        ///
+        /// < usize: Maximum axis index
+        pub inline fn maxAxisIndex(self: *const Self) usize {
+            return self.base().maxAxisIndex();
+        }
+
+        // Update Vector2 with length clamped between min_length and max_length
+        // If vector length is 0, no changes are made
+        // For integer type Vector2, components are rounded up or down
+        //
+        // > min_length_: scalar(T)
+        //     Minimum length to clamp to
+        //
+        // > max_length_: scalar(T)
+        //     Maximum length to clamp to
+        //
+        // < *Self: Updated Current Vector2
+        pub inline fn clampLength(
+            self: *Self,
+            min_length_: scalar(T),
+            max_length_: scalar(T),
+        ) *Self {
+            _ = self.base().clampLength(min_length_, max_length_);
+            return self;
+        }
+
+        // New Vector2 with length clamped between min_length and max_length
+        // If vector length is 0, no changes are made
+        // For integer type Vector2, components are rounded up or down
+        //
+        // > min_length_: scalar(T)
+        //     Minimum length to clamp to
+        // > max_length_: scalar(T)
+        //     Maximum length to clamp to
+        //
+        // < Self: Clamped Length Vector2
+        pub inline fn clampedLength(
+            self: *const Self,
+            min_length_: scalar(T),
+            max_length_: scalar(T),
+        ) Self {
+            return self.clone().ptr().clampLength(min_length_, max_length_).*;
+        }
+
+        // Update Vector2 moving it toward other by delta units
+        // If distance to other is less than delta, sets to other
+        // other vector converterd from anytype
+        //
+        // > other: anytype
+        //     Vector2 to move toward
+        //
+        // > delta_: scalar(T)
+        //     Amount to move toward other
+        //
+        // < *Self: Updated Current Vector2
+        pub inline fn moveToward(self: *Self, other_: anytype, delta_: scalar(T)) *Self {
+            _ = self.base().moveToward(other_, delta_);
+            return self;
+        }
+
+        // New Vector2 moved toward other by delta units
+        // If distance to other is less than delta, sets to other
+        // other vector converterd from anytype
+        //
+        // > other_: anytype
+        //     Vector2 to move toward
+        //
+        // > delta_: scalar(T)
+        //     Amount to move toward other
+        //
+        // < Self: Moved Toward Vector2
+        pub inline fn movedToward(self: *const Self, other_: anytype, delta_: scalar(T)) Self {
+            return self.clone().ptr().moveToward(other_, delta_).*;
         }
 
         /// Vector2 to string
@@ -991,11 +1120,11 @@ test "Projection" {
     var v1 = Vector2(f32).from(.{ 1.0, 2.0 });
     const v2 = Vector2(f32).from(.{ 4.0, 2.0 });
 
-    const proj = v1.projected(v2);
+    const proj = v1.projected(try v2.normalized());
     try testing.expectEqual(1.6, proj.comp.x);
     try testing.expectEqual(0.8, proj.comp.y);
 
-    _ = v1.project(v2);
+    _ = v1.project(try v2.normalized());
     try testing.expectEqual(1.6, v1.comp.x);
     try testing.expectEqual(0.8, v1.comp.y);
 }
