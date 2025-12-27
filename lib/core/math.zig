@@ -56,6 +56,70 @@ pub fn degrees(radians_: f32) f32 {
     return radians_ * (180.0 / std.math.pi);
 }
 
+/// Creates a right-handed perspective projection matrix with depth range [-1, 1] (OpenGL convention)
+/// Equivalent to glm::perspective
+pub fn perspective(comptime T: type, fovy: T, aspect: T, near: T, far: T) Matrix(T, 4, 4) {
+    const tan_half_fovy = @tan(fovy / 2);
+
+    var result = Matrix(T, 4, 4).zero();
+    result.data2[0][0] = 1 / (aspect * tan_half_fovy);
+    result.data2[1][1] = 1 / tan_half_fovy;
+    result.data2[2][2] = -(far + near) / (far - near);
+    result.data2[2][3] = -(2 * far * near) / (far - near);
+    result.data2[3][2] = -1;
+
+    return result;
+}
+
+/// Creates a right-handed perspective projection matrix with depth range [0, 1] (Vulkan/DirectX convention)
+/// Equivalent to glm::perspectiveZO (with GLM_DEPTH_ZERO_TO_ONE)
+pub fn perspectiveZ(comptime T: type, fovy: T, aspect: T, near: T, far: T) Matrix(T, 4, 4) {
+    const tan_half_fovy = @tan(fovy / 2);
+
+    var result = Matrix(T, 4, 4).zero();
+    result.data2[0][0] = 1 / (aspect * tan_half_fovy);
+    result.data2[1][1] = 1 / tan_half_fovy;
+    result.data2[2][2] = far / (near - far);
+    result.data2[2][3] = -(far * near) / (far - near);
+    result.data2[3][2] = -1;
+
+    return result;
+}
+
+/// Creates a right-handed orthographic projection matrix with depth range [-1, 1] (OpenGL convention)
+/// Equivalent to glm::ortho
+pub fn ortho(comptime T: type, left: T, right: T, bottom: T, top: T, near: T, far: T) Matrix(T, 4, 4) {
+    var result = Matrix(T, 4, 4).identity();
+    result.data2[0][0] = 2 / (right - left);
+    result.data2[1][1] = 2 / (top - bottom);
+    result.data2[2][2] = -2 / (far - near);
+    result.data2[0][3] = -(right + left) / (right - left);
+    result.data2[1][3] = -(top + bottom) / (top - bottom);
+    result.data2[2][3] = -(far + near) / (far - near);
+
+    return result;
+}
+
+/// Creates a right-handed orthographic projection matrix with depth range [0, 1] (Vulkan/DirectX convention)
+/// Equivalent to glm::orthoZO (with GLM_DEPTH_ZERO_TO_ONE)
+pub fn orthoZ(comptime T: type, left: T, right: T, bottom: T, top: T, near: T, far: T) Matrix(T, 4, 4) {
+    var result = Matrix(T, 4, 4).identity();
+    result.data2[0][0] = 2 / (right - left);
+    result.data2[1][1] = 2 / (top - bottom);
+    result.data2[2][2] = -1 / (far - near);
+    result.data2[0][3] = -(right + left) / (right - left);
+    result.data2[1][3] = -(top + bottom) / (top - bottom);
+    result.data2[2][3] = -near / (far - near);
+
+    return result;
+}
+
+/// Creates a 2D orthographic projection matrix (no near/far planes)
+/// Equivalent to glm::ortho (2D version)
+pub fn ortho2D(comptime T: type, left: T, right: T, bottom: T, top: T) Matrix(T, 4, 4) {
+    return ortho(T, left, right, bottom, top, -1, 1);
+}
+
 // const testing = @import("std").testing;
 // const std = @import("std");
 // const v32 = @import("zmath").f32x4;
