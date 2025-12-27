@@ -86,7 +86,8 @@ pub fn main() !void {
 
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
 
-    var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
+    // var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
+    var shader = try Shader.init("src/shaders/tex_transform.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     defer shader.deinit();
 
     Texture.setParams(gl.REPEAT, gl.REPEAT, gl.LINEAR_MIPMAP_LINEAR, gl.NEAREST);
@@ -109,9 +110,28 @@ pub fn main() !void {
 
         shader.setFloat("mixFactor", mixFactor);
 
+        var trans = Matrix(f32, 4, 4).identity();
+        _ = trans.translate(Vector(f32, 3).from(.{ 0.5, -0.5, 0.0 }));
+        _ = trans.rotate(@floatCast(glfw.getTime()), Vector(f32, 3).from(.{ 0.0, 0.0, 1.0 }));
+
         shader.use();
         shader.setInt("floorTexture", 0);
         shader.setInt("faceTexture", 1);
+        shader.setMat4("transform", @as([*]f32, @ptrCast(&trans.data2[0][0])));
+        // shader.setMat4("transform", trans2.root);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
+        gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
+
+        var trans2 = Matrix(f32, 4, 4).identity();
+        const factor: f32 = @floatCast(@abs(@sin(glfw.getTime())));
+        _ = trans2.translate(Vector(f32, 3).from(.{ -0.5, 0.5, 0.0 }));
+        _ = trans2.scale(Vector(f32, 3).from(factor));
+
+        shader.use();
+        shader.setInt("floorTexture", 0);
+        shader.setInt("faceTexture", 1);
+        shader.setMat4("transform", @as([*]f32, @ptrCast(&trans2.data2[0][0])));
+        // shader.setMat4("transform", trans2.root);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
         gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
 
@@ -142,7 +162,7 @@ fn framebufferSizeCallback(_: *glfw.Window, width: c_int, height: c_int) callcon
     gl.viewport(0, 0, width, height);
 }
 
-var mixFactor: f32 = 0.2; // used in the fragment shader to mix the two textures
+var mixFactor: f32 = 1.0; // used in the fragment shader to mix the two textures
 
 const gl_major = 3;
 const gl_minor = 3;
@@ -190,6 +210,4 @@ const RegexMatch = qp.util.RegexMatch;
 const tests = std.testing;
 
 const Vector = qp.math.Vector;
-const Vector2 = qp.math.Vector2;
-const Vector3 = qp.math.Vector3;
-const Vector4 = qp.math.Vector4;
+const Matrix = qp.math.Matrix;

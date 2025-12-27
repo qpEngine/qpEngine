@@ -71,6 +71,30 @@ pub fn Vector(
             else => [N]T,
         },
 
+        pub const UNIT = switch (N) {
+            2 => struct {
+                pub const LEFT = Self.unitN(0);
+                pub const RIGHT = Self.unitP(0);
+                pub const UP = Self.unitN(1);
+                pub const DOWN = Self.unitP(1);
+            },
+            3 => struct {
+                pub const LEFT = Self.unitN(0);
+                pub const RIGHT = Self.unitP(0);
+                pub const DOWN = Self.unitN(1);
+                pub const UP = Self.unitP(1);
+                pub const FORWARD = Self.unitN(2);
+                pub const BACK = Self.unitP(2);
+                pub const MODEL_LEFT = Self.unitP(0);
+                pub const MODEL_RIGHT = Self.unitN(0);
+                pub const MODEL_TOP = Self.unitP(1);
+                pub const MODEL_BOTTOM = Self.unitN(1);
+                pub const MODEL_FRONT = Self.unitP(2);
+                pub const MODEL_REAR = Self.unitN(2);
+            },
+            else => {},
+        };
+
         // zig fmt: off
         const Self = @This();       // Type alias for self Vector type
         const Alt = Vector(f32, N); // Alternate Vector return type of integer type vectors
@@ -82,8 +106,6 @@ pub fn Vector(
         const BoolInt = @Type(.{ .int = .{ .signedness = .unsigned, .bits = N } });
         // zig fmt: on
 
-        // These functions simplify the logic for when functions operate differently with
-        // integer or floating point vectors, or take different types of inputs
         inline fn scalar(comptime I: type) type {
             const info = @typeInfo(I);
             return if (info == .int or info == .comptime_int) R else T;
@@ -303,18 +325,18 @@ pub fn Vector(
                 .array => |a| switch (v_type) {
                     [N]T => value_,
                     // else => arrayFrom(a.child, value_),
-                    else => if (a.child == comptime_int or a.child == comptime_float) //
-                        resizeArrayComptime(a.child, value_.len, value_, fill_)
-                    else
-                        resizeArray(a.child, value_.len, value_, fill_),
+                    else => switch (a.child) {
+                        comptime_int, comptime_float => resizeArrayComptime(a.child, value_.len, value_, fill_),
+                        else => resizeArray(a.child, value_.len, value_, fill_),
+                    },
                 },
                 .pointer => |p| switch (v_type) {
                     []T => blk: {
                         if (value_.len != N) {
-                            break :blk if (p.child == comptime_int or p.child == comptime_float) //
-                                resizeArrayComptime(p.child, value_.len, value_, fill_)
-                            else
-                                resizeArray(p.child, value_.len, value_, fill_);
+                            break :blk switch (p.child) {
+                                comptime_int, comptime_float => resizeArrayComptime(p.child, value_.len, value_, fill_),
+                                else => resizeArray(p.child, value_.len, value_, fill_),
+                            };
                         }
                         break :blk value_.*;
                     },
@@ -324,58 +346,50 @@ pub fn Vector(
                     V => value_,
                     else => blk: {
                         if (v.len != N) {
-                            break :blk if (v.child == comptime_int or v.child == comptime_float) //
-                                resizeArrayComptime(v.child, v.len, value_, fill_)
-                            else
-                                resizeArray(v.child, v.len, value_, fill_);
+                            break :blk switch (v.child) {
+                                comptime_int, comptime_float => resizeArrayComptime(v.child, v.len, value_, fill_),
+                                else => resizeArray(v.child, v.len, value_, fill_),
+                            };
                         }
                         break :blk arrayFrom(@typeInfo(v_type).child, value_);
                     },
                 },
                 .@"struct" => |s| switch (v_type) {
-                    Self => value_.simd,
                     else => blk: {
                         if (s.fields.len == 0) break :blk @splat(0);
                         if (s.is_tuple) {
                             const I: type = comptime iblk: {
-                                var flag: bool = true;
                                 const i: type = s.fields[0].type;
-                                for (s.fields) |f| {
-                                    flag = flag and f.type == i;
-                                }
+                                const flag: bool = for (s.fields) |f| {
+                                    if (f.type != i) break false;
+                                } else true;
                                 const msg = "Tuple elements must be of the same type";
                                 break :iblk if (flag) i else @compileError(msg);
                             };
                             const size: usize = s.fields.len;
-                            const i: type = s.fields[0].type;
                             if (size != N) {
-                                break :blk if (i == comptime_int or i == comptime_float) //
-                                    resizeArrayComptime(i, size, value_, fill_)
-                                else
-                                    resizeArray(I, size, value_, fill_);
+                                break :blk switch (I) {
+                                    comptime_int, comptime_float => resizeArrayComptime(I, size, value_, fill_),
+                                    else => resizeArray(I, size, value_, fill_),
+                                };
                             }
                             break :blk arrayFrom(I, value_);
-                        } else if (@hasField(v_type, "data") and
-                            @typeInfo(@FieldType(v_type, "data")) == .array)
-                        {
-                            const info: std.builtin.Type = @typeInfo(@FieldType(v_type, "data"));
-                            break :blk arrayFrom(
-                                info.array.child,
-                                (if (v_type.len != N) value_.toSize(N, 0) else value_).simd,
-                            );
                         } else {
                             @compileError("Unsupported struct");
                         }
                     },
                 },
-                .@"union" => if (@hasField(v_type, "simd")) blk: {
-                    if (@typeInfo(@TypeOf(value_.simd)) == .vector) {
-                        break :blk vectorFromAny(value_.data, fill_);
+                .@"union" => switch (v_type) {
+                    Self => value_.simd,
+                    else => if (@hasField(v_type, "simd")) blk: {
+                        if (@typeInfo(@TypeOf(value_.simd)) == .vector) {
+                            break :blk vectorFromAny(value_.data, fill_);
+                        } else {
+                            @compileError("Unsupported union simd declaration");
+                        }
                     } else {
-                        @compileError("Unsupported union simd declaration");
-                    }
-                } else {
-                    @compileError("Unsupported union");
+                        @compileError("Unsupported union");
+                    },
                 },
                 else => {
                     @compileError(std.fmt.comptimePrint("Unsupported Type: {any}\n", .{v_type}));
@@ -527,6 +541,7 @@ pub fn Vector(
         }
 
         /// Update Vector with Quotient of vectors by components
+        /// Throws error if division by zero is attempted
         /// Other vector converterd from anytype
         ///
         /// > other: anytype
@@ -549,6 +564,7 @@ pub fn Vector(
         }
 
         /// New Vector is Quotient of vectors by components
+        /// Throws error if division by zero is attempted
         /// Other vector converterd from anytype
         ///
         /// > other: anytype
@@ -563,6 +579,7 @@ pub fn Vector(
         }
 
         /// Update Vector with Modulus of vectors by components
+        /// Throws error if division by zero is attempted
         /// Other vector converterd from anytype
         ///
         /// > other: anytype
@@ -585,6 +602,7 @@ pub fn Vector(
         }
 
         /// New Vector is Modulus of vectors by components
+        /// Throws error if division by zero is attempted
         /// Other vector converterd from anytype
         ///
         /// > other: anytype
@@ -599,6 +617,7 @@ pub fn Vector(
         }
 
         /// Update Vector with Remainder from division of vectors by components
+        /// Throws error if division by zero is attempted
         /// Other vector converterd from anytype
         ///
         /// > other: anytype
@@ -621,6 +640,7 @@ pub fn Vector(
         }
 
         /// New Vector is Remainder from division of vectors by components
+        /// Throws error if division by zero is attempted
         /// Other vector converterd from anytype
         ///
         /// > other: anytype
@@ -906,24 +926,40 @@ pub fn Vector(
         pub inline fn cross(
             vectors_: [N - 1]Self,
         ) Self {
-            var result: [N]T = undefined;
+            if (N == 2) {
+                const a = vectors_[0];
+                return .{ .comp = .{
+                    .x = a.comp.y,
+                    .y = -a.comp.x,
+                } };
+            } else if (N == 3) {
+                const a = vectors_[0];
+                const b = vectors_[1];
+                return .{ .comp = .{
+                    .x = a.comp.y * b.comp.z - a.comp.z * b.comp.y,
+                    .y = a.comp.z * b.comp.x - a.comp.x * b.comp.z,
+                    .z = a.comp.x * b.comp.y - a.comp.y * b.comp.x,
+                } };
+            } else {
+                var result: [N]T = undefined;
 
-            var matrix: [N][N]T = undefined;
+                var matrix: [N][N]T = undefined;
 
-            for (vectors_, 0..) |v, i| {
-                matrix[i] = v.simd;
+                for (vectors_, 0..) |v, i| {
+                    matrix[i] = v.simd;
+                }
+                matrix[N - 1] = [_]T{0} ** N;
+
+                for (0..N) |i| {
+                    matrix[N - 1][i] = 1;
+
+                    result[i] = determinant(N, &matrix);
+
+                    matrix[N - 1][i] = 0;
+                }
+
+                return Self.from(result);
             }
-            matrix[N - 1] = [_]T{0} ** N;
-
-            for (0..N) |i| {
-                matrix[N - 1][i] = 1;
-
-                result[i] = determinant(N, &matrix);
-
-                matrix[N - 1][i] = 0;
-            }
-
-            return Self.from(result);
         }
 
         /// Private
@@ -1056,8 +1092,8 @@ pub fn Vector(
             self: *const Self,
         ) scalar(T) {
             return switch (@typeInfo(T)) {
-                .float => @sqrt(self.inner(self)),
-                .int => @sqrt(@as(R, @floatFromInt(self.inner(self)))),
+                .float => @sqrt(@reduce(.Add, self.simd * self.simd)),
+                .int => @sqrt(@as(R, @floatFromInt(@reduce(.Add, self.simd * self.simd)))),
                 else => unreachable,
             };
         }
@@ -1068,23 +1104,23 @@ pub fn Vector(
         pub inline fn lengthSq(
             self: *const Self,
         ) T {
-            return self.inner(self);
+            return @reduce(.Add, self.simd * self.simd);
         }
 
         /// Update Vector with Normalization of itself to unit length
-        /// If vector length is 0, vector is unchanged
         /// For integer type Vector, components are rounded up or down
+        /// Does not protect against division by zero (zero vector only)
         ///
         /// < !*Self: Updated Current Vector
         pub inline fn normalize(
             self: *Self,
         ) *Self {
-            const a = if (comptime isInt) Vector(R, N).from(self.data) else self;
-            const v_len = a.lengthSq();
-            if (v_len == 0) return self;
+            const v_len = @reduce(.Add, self.simd * self.simd);
+            const a = if (comptime isInt) Vector(R, N).vectorFromAny(self.data, 0) else self.simd;
 
-            const b = @as(@Vector(N, scalar(T)), @splat(@sqrt(v_len)));
-            const result = a.simd / b;
+            const b = if (comptime isInt) @as(@Vector(N, scalar(T)), @splat(@sqrt(@as(R, @floatFromInt(v_len))))) else //
+                @as(@Vector(N, scalar(T)), @splat(@sqrt(v_len)));
+            const result = a / b;
 
             self.simd = if (comptime isInt) @as(V, @intFromFloat(@round(result))) else result;
             return self;
@@ -1133,7 +1169,7 @@ pub fn Vector(
         /// Sign of 0 = 0
         ///
         /// < Self: Signed Vector
-        pub inline fn signZed(
+        pub inline fn signedZ(
             self: *const Self,
         ) Self {
             return self.clone().ptr().signZ().*;
@@ -1195,7 +1231,9 @@ pub fn Vector(
             other_: anytype,
         ) Self {
             var new = if (@TypeOf(other_) == Self) other_ else Self.from(other_);
-            return new.subtract(self).normalized();
+            _ = new.subtract(self);
+            if (new.lengthSq() == 0) return Self.from(0);
+            return new.normalized();
         }
 
         /// Calculate euclidean distance between vectors
@@ -1210,11 +1248,11 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) scalar(T) {
-            const new = if (@TypeOf(other_) == Self) other_ else Self.from(other_);
+            // const new = if (@TypeOf(other_) == Self) other_ else Self.from(other_);
             return switch (@typeInfo(T)) {
-                .float => @sqrt(self.distanceToSq(new)),
-                .int => @sqrt(@as(R, @floatFromInt(self.distanceToSq(new)))),
-                else => @compileError("Vector element type must be numeric"),
+                .float => @sqrt(self.distanceToSq(other_)),
+                .int => @sqrt(@as(R, @floatFromInt(self.distanceToSq(other_)))),
+                else => unreachable,
             };
         }
 
@@ -1266,7 +1304,7 @@ pub fn Vector(
             time_: f32,
         ) *Self {
             const time = if (comptime isInt) @trunc(time_) else time_;
-            var new = if (@TypeOf(other_) == Self) other_ else Self.from(other_);
+            var new = Self.from(other_);
             return self.multiply(1 - time).summate(new.multiply(time).*);
         }
 
@@ -1412,12 +1450,13 @@ pub fn Vector(
         /// < *Self: Updated Current Vector
         pub inline fn inverse(
             self: *Self,
-        ) *Self {
-            if (comptime isInt) @compileError("Operation not supported for integer vectors");
-            const a = self.simd;
+        ) switch (isInt) {
+            true => @compileError("Operation not supported for integer vectors"),
+            false => *Self,
+        } {
             const b: V = @splat(1);
 
-            self.simd = b / a;
+            self.simd = b / self.simd;
             return self;
         }
 
@@ -1458,12 +1497,13 @@ pub fn Vector(
         /// < *Self: Updated Current Vector
         pub inline fn negInverse(
             self: *Self,
-        ) *Self {
-            if (comptime isInt) @compileError("Operation not supported for integer vectors");
-            const a = self.simd;
+        ) switch (isInt) {
+            true => @compileError("Operation not supported for integer vectors"),
+            false => *Self,
+        } {
             const b: V = @splat(-1);
 
-            self.simd = b / a;
+            self.simd = b / self.simd;
             return self;
         }
 
@@ -1514,8 +1554,6 @@ pub fn Vector(
         ) Self {
             return self.clone().ptr().clamp(min_, max_).*;
         }
-
-        // ---------------- TRANSFER ----------------
 
         /// Update Vector with projection onto given normal vector
         /// normal_ must be normalized
@@ -1709,7 +1747,13 @@ pub fn Vector(
             return self.clone().ptr().moveToward(other_, delta_).*;
         }
 
-        // bounce
+        // Update Vector to bounce off given normal vector
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Vector to bounce off of
+        //
+        // < *Self: Bounced Current Vector
         pub inline fn bounce(
             self: *Self,
             normal_: Self,
@@ -1719,7 +1763,14 @@ pub fn Vector(
             self.simd = self.simd - normal_.simd * @as(V, @splat(2 * dot));
             return self;
         }
-        // bounced
+
+        // New Vector bounced off given normal vector
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Vector to bounce off of
+        //
+        // < Self: Bounced Vector
         pub inline fn bounced(
             self: *const Self,
             normal_: Self,
@@ -1727,7 +1778,13 @@ pub fn Vector(
             return self.clone().ptr().bounce(normal_).*;
         }
 
-        // reflect
+        // Update Vector to its reflection about given normal vector
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Vector to reflect about
+        //
+        // < *Self: Reflected Current Vector
         pub inline fn reflect(
             self: *Self,
             normal_: Self,
@@ -1738,7 +1795,13 @@ pub fn Vector(
             return self;
         }
 
-        // reflected
+        // New Vector reflected about given normal vector
+        // normal_ must be normalized
+        //
+        // > normal_: Self
+        //     Vector to reflect about
+        //
+        // < Self: Reflected Vector
         pub inline fn reflected(
             self: *const Self,
             normal_: Self,
@@ -1865,6 +1928,8 @@ pub fn Vector(
             return self.clone().ptr().snap(increment_).*;
         }
 
+        // TODO: remaining Vector methods
+        //
         // aspect
         // hash
         //
@@ -1916,41 +1981,12 @@ inline fn isNumeric(comptime T: type) bool {
     };
 }
 
-const std = @import("std");
-const testing = std.testing;
-
-const toBytes = std.mem.toBytes;
-const bytesToValue = std.mem.bytesToValue;
-const Vector2 = @import("vector2.zig").Vector2;
-const Vector3 = @import("vector3.zig").Vector3;
-const Vector4 = @import("vector4.zig").Vector4;
-
-// Tests
-// Vector
-
-// NOTE: Fuzz testing not yet available on windows/macos
-// test "Fuzz" {}
-
+// BEGIN: Vector Tests
 test "Initialize" {
 
     // useful data
     const a1 = [3]f32{ 1.0, 2.0, 3.0 };
     const simd1 = @as(@Vector(3, f32), a1);
-
-    // from VectorN
-    {
-        // const v1 = Vector2(f32).from(.{ 1.0, 2.0 });
-        // const v2 = Vector(f32, 2).from(v1);
-        // try testing.expectEqual(Vector(f32, 2).from(.{ 1.0, 2.0 }), v2);
-        //
-        // const v3 = Vector3(f32).from(.{ 1.0, 2.0, 3.0 });
-        // const v4 = Vector(f32, 3).from(v3);
-        // try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 }), v4);
-        //
-        // const v5 = Vector4(f32).from(.{ 1.0, 2.0, 3.0, 4.0 });
-        // const v6 = Vector(f32, 4).from(v5);
-        // try testing.expectEqual(Vector(f32, 4).from(.{ 1.0, 2.0, 3.0, 4.0 }), v6);
-    }
 
     // casting
     {
@@ -2389,12 +2425,12 @@ test "Normalize" {
 test "Sign" {
     // SignZ
     var v1 = Vector(f32, 3).from(.{ 1.0, -2.0, 0.0 });
-    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 0.0 }).data, v1.signZed().data);
+    try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 0.0 }).data, v1.signedZ().data);
     _ = v1.signZ();
     try testing.expectEqual(Vector(f32, 3).from(.{ 1.0, -1.0, 0.0 }).data, v1.data);
 
     var v2 = Vector(i64, 3).from(.{ 1, -2, 0 });
-    try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 0 }).data, v2.signZed().data);
+    try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 0 }).data, v2.signedZ().data);
     _ = v2.signZ();
     try testing.expectEqual(Vector(i64, 3).from(.{ 1, -1, 0 }).data, v2.data);
 
@@ -2702,3 +2738,18 @@ test "Formatting" {
     const fmt = try std.fmt.bufPrint(&buf, "{f}", .{v1});
     try testing.expect(std.mem.eql(u8, "Vector3(1.2, 2, 0.25)", fmt));
 }
+
+test "Testfunc" {
+    const vec3 = Vector(f32, 3).from(1.0);
+    const vec2 = Vector(i32, 2).from(2);
+    // const vec4 = Vector(i8, 4).from(3);
+    vec3.float.temp();
+    vec2.float.temp();
+    // vec4.testfunc();
+}
+
+const std = @import("std");
+const testing = std.testing;
+
+const toBytes = std.mem.toBytes;
+const bytesToValue = std.mem.bytesToValue;

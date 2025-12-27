@@ -140,6 +140,11 @@ pub const Shader = struct {
     pub fn setFloat4(self: *Shader, name: [*c]const u8, v0: f32, v1: f32, v2: f32, v3: f32) void {
         gl.uniform4f(gl.getUniformLocation(self.ID, name), v0, v1, v2, v3);
     }
+
+    pub fn setMat4(self: *Shader, name: [*c]const u8, mat: [*]const f32) void {
+        // gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.FALSE, mat);
+        gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.TRUE, mat);
+    }
 };
 
 const std = @import("std");
