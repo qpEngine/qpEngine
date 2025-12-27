@@ -77,16 +77,13 @@ pub fn main() !void {
     var EBO: gl.Uint = tlib.createEBO(&indices);
     defer gl.deleteBuffers(1, &EBO);
 
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), null);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
-    gl.vertexAttribPointer(2, 3, gl.FLOAT, gl.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(5 * @sizeOf(f32))));
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), null);
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
     gl.enableVertexAttribArray(0);
     gl.enableVertexAttribArray(1);
-    gl.enableVertexAttribArray(2);
 
     gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
 
-    // var shader = try Shader.init("src/shaders/tex.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     var shader = try Shader.init("src/shaders/tex_transform.vert", "src/shaders/tex.frag", std.heap.page_allocator);
     defer shader.deinit();
 
@@ -94,12 +91,14 @@ pub fn main() !void {
     const floorTexture = try Texture.init("misc/textures/wall.jpg", false);
     const faceTexture = try Texture.init("misc/textures/awesomeface.png", true);
 
+    gl.enable(gl.DEPTH_TEST);
+
     // render loop
     while (!window.shouldClose()) {
         processInput(window);
 
         gl.clearColor(0.16, 0.12, 0.07, 1.0); // background color
-        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         gl.bindVertexArray(VAO);
 
@@ -110,30 +109,26 @@ pub fn main() !void {
 
         shader.setFloat("mixFactor", mixFactor);
 
-        var trans = Matrix(f32, 4, 4).identity();
-        _ = trans.translate(Vector(f32, 3).from(.{ 0.5, -0.5, 0.0 }));
-        _ = trans.rotate(@floatCast(glfw.getTime()), Vector(f32, 3).from(.{ 0.0, 0.0, 1.0 }));
+        var model = Matrix(f32, 4, 4).identity();
+        const axis = Vector(f32, 3).from(.{ 0.5, 1.0, 0.0 }).normalized();
+        _ = model.rotate(@as(f32, (@floatCast(glfw.getTime()))) * qp.math.radians(50.0), axis);
+
+        var view = Matrix(f32, 4, 4).identity();
+        _ = view.translate(Vector(f32, 3).from(.{ 0.0, 0.0, -3.0 }));
+
+        const projection = qp.math.perspective(f32, qp.math.radians(45.0), @as(f32, winWidth) / @as(f32, winHeight), 0.1, 100.0);
 
         shader.use();
         shader.setInt("floorTexture", 0);
         shader.setInt("faceTexture", 1);
-        shader.setMat4("transform", @as([*]f32, @ptrCast(&trans.data2[0][0])));
-        // shader.setMat4("transform", trans2.root);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
-        gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
 
-        var trans2 = Matrix(f32, 4, 4).identity();
-        const factor: f32 = @floatCast(@abs(@sin(glfw.getTime())));
-        _ = trans2.translate(Vector(f32, 3).from(.{ -0.5, 0.5, 0.0 }));
-        _ = trans2.scale(Vector(f32, 3).from(factor));
+        shader.setMat4("model", model.root());
+        shader.setMat4("view", view.root());
+        shader.setMat4("projection", projection.root());
 
-        shader.use();
-        shader.setInt("floorTexture", 0);
-        shader.setInt("faceTexture", 1);
-        shader.setMat4("transform", @as([*]f32, @ptrCast(&trans2.data2[0][0])));
-        // shader.setMat4("transform", trans2.root);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
-        gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
+        // gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
+        gl.drawArrays(gl.TRIANGLES, 0, 36);
 
         window.swapBuffers();
         glfw.pollEvents();
@@ -162,7 +157,7 @@ fn framebufferSizeCallback(_: *glfw.Window, width: c_int, height: c_int) callcon
     gl.viewport(0, 0, width, height);
 }
 
-var mixFactor: f32 = 1.0; // used in the fragment shader to mix the two textures
+var mixFactor: f32 = 0.3; // used in the fragment shader to mix the two textures
 
 const gl_major = 3;
 const gl_minor = 3;
@@ -182,10 +177,51 @@ const vertices = [_]f32{
      // sqw, -sqh, 0.0, 0.55, 0.45, 0.0, 1.0, 0.0, // bottom right
     // -sqw, -sqh, 0.0, 0.45, 0.45, 0.0, 0.0, 1.0, // bottom left
     // -sqw,  sqh, 0.0, 0.45, 0.55, 1.0, 1.0, 0.0, // top left
-     sqw,  sqh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, // top right
-     sqw, -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // bottom right
-    -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, // bottom left
-    -sqw,  sqh, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, // top left
+    //  sqw,  sqh, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, // top right
+    //  sqw, -sqh, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, // bottom right
+    // -sqw, -sqh, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, // bottom left
+    // -sqw,  sqh, 0.0, 0.0, 1.0, 1.0, 1.0, 0.0, // top left
+    -0.5, -0.5, -0.5,  0.0, 0.0,
+     0.5, -0.5, -0.5,  1.0, 0.0,
+     0.5,  0.5, -0.5,  1.0, 1.0,
+     0.5,  0.5, -0.5,  1.0, 1.0,
+    -0.5,  0.5, -0.5,  0.0, 1.0,
+    -0.5, -0.5, -0.5,  0.0, 0.0,
+
+    -0.5, -0.5,  0.5,  0.0, 0.0,
+     0.5, -0.5,  0.5,  1.0, 0.0,
+     0.5,  0.5,  0.5,  1.0, 1.0,
+     0.5,  0.5,  0.5,  1.0, 1.0,
+    -0.5,  0.5,  0.5,  0.0, 1.0,
+    -0.5, -0.5,  0.5,  0.0, 0.0,
+
+    -0.5,  0.5,  0.5,  1.0, 0.0,
+    -0.5,  0.5, -0.5,  1.0, 1.0,
+    -0.5, -0.5, -0.5,  0.0, 1.0,
+    -0.5, -0.5, -0.5,  0.0, 1.0,
+    -0.5, -0.5,  0.5,  0.0, 0.0,
+    -0.5,  0.5,  0.5,  1.0, 0.0,
+
+     0.5,  0.5,  0.5,  1.0, 0.0,
+     0.5,  0.5, -0.5,  1.0, 1.0,
+     0.5, -0.5, -0.5,  0.0, 1.0,
+     0.5, -0.5, -0.5,  0.0, 1.0,
+     0.5, -0.5,  0.5,  0.0, 0.0,
+     0.5,  0.5,  0.5,  1.0, 0.0,
+
+    -0.5, -0.5, -0.5,  0.0, 1.0,
+     0.5, -0.5, -0.5,  1.0, 1.0,
+     0.5, -0.5,  0.5,  1.0, 0.0,
+     0.5, -0.5,  0.5,  1.0, 0.0,
+    -0.5, -0.5,  0.5,  0.0, 0.0,
+    -0.5, -0.5, -0.5,  0.0, 1.0,
+
+    -0.5,  0.5, -0.5,  0.0, 1.0,
+     0.5,  0.5, -0.5,  1.0, 1.0,
+     0.5,  0.5,  0.5,  1.0, 0.0,
+     0.5,  0.5,  0.5,  1.0, 0.0,
+    -0.5,  0.5,  0.5,  0.0, 0.0,
+    -0.5,  0.5, -0.5,  0.0, 1.0
 }; // zig fmt: on
 
 const indices = [_]u32{

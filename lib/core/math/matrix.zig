@@ -62,7 +62,6 @@ pub fn Matrix(
         simd2: [M]@Vector(N, T),
         data1: [M * N]T,
         data2: [M][N]T,
-        root: [*]T,
 
         // zig fmt: off
         const Self = @This();
@@ -100,6 +99,10 @@ pub fn Matrix(
         /// < Self: A new Matrix
         pub inline fn init() Self {
             return .{ .data = undefined };
+        }
+
+        pub inline fn root(self: *const Self) [*]const T {
+            return &self.data1;
         }
 
         fn scalarFrom(comptime VT: type, value: VT) T {
@@ -162,6 +165,86 @@ pub fn Matrix(
         /// Zero matrix
         pub inline fn zero() Self {
             return Self.from(0);
+        }
+
+        /// Creates a right-handed perspective projection matrix with depth range [-1, 1] (OpenGL convention)
+        /// Equivalent to glm::perspective
+        pub fn perspective(fovy: T, aspect: T, near: T, far: T) Self {
+            comptime {
+                if (M != 4 or N != 4) @compileError("Perspective projection requires a 4x4 matrix");
+            }
+
+            const tan_half_fovy = @tan(fovy / 2);
+
+            var result = Self.zero();
+            result.data2[0][0] = 1 / (aspect * tan_half_fovy);
+            result.data2[1][1] = 1 / tan_half_fovy;
+            result.data2[2][2] = -(far + near) / (far - near);
+            result.data2[2][3] = -(2 * far * near) / (far - near);
+            result.data2[3][2] = -1;
+
+            return result;
+        }
+
+        /// Creates a right-handed perspective projection matrix with depth range [0, 1] (Vulkan/DirectX convention)
+        /// Equivalent to glm::perspectiveZO (with GLM_DEPTH_ZERO_TO_ONE)
+        pub fn perspectiveZO(fovy: T, aspect: T, near: T, far: T) Self {
+            comptime {
+                if (M != 4 or N != 4) @compileError("Perspective projection requires a 4x4 matrix");
+            }
+
+            const tan_half_fovy = @tan(fovy / 2);
+
+            var result = Self.zero();
+            result.data2[0][0] = 1 / (aspect * tan_half_fovy);
+            result.data2[1][1] = 1 / tan_half_fovy;
+            result.data2[2][2] = far / (near - far);
+            result.data2[2][3] = -(far * near) / (far - near);
+            result.data2[3][2] = -1;
+
+            return result;
+        }
+
+        /// Creates a right-handed orthographic projection matrix with depth range [-1, 1] (OpenGL convention)
+        /// Equivalent to glm::ortho
+        pub fn ortho(left: T, right: T, bottom: T, top: T, near: T, far: T) Self {
+            comptime {
+                if (M != 4 or N != 4) @compileError("Orthographic projection requires a 4x4 matrix");
+            }
+
+            var result = Self.identity();
+            result.data2[0][0] = 2 / (right - left);
+            result.data2[1][1] = 2 / (top - bottom);
+            result.data2[2][2] = -2 / (far - near);
+            result.data2[0][3] = -(right + left) / (right - left);
+            result.data2[1][3] = -(top + bottom) / (top - bottom);
+            result.data2[2][3] = -(far + near) / (far - near);
+
+            return result;
+        }
+
+        /// Creates a right-handed orthographic projection matrix with depth range [0, 1] (Vulkan/DirectX convention)
+        /// Equivalent to glm::orthoZO (with GLM_DEPTH_ZERO_TO_ONE)
+        pub fn orthoZO(left: T, right: T, bottom: T, top: T, near: T, far: T) Self {
+            comptime {
+                if (M != 4 or N != 4) @compileError("Orthographic projection requires a 4x4 matrix");
+            }
+
+            var result = Self.identity();
+            result.data2[0][0] = 2 / (right - left);
+            result.data2[1][1] = 2 / (top - bottom);
+            result.data2[2][2] = -1 / (far - near);
+            result.data2[0][3] = -(right + left) / (right - left);
+            result.data2[1][3] = -(top + bottom) / (top - bottom);
+            result.data2[2][3] = -near / (far - near);
+
+            return result;
+        }
+
+        /// Creates a 2D orthographic projection matrix (no near/far planes)
+        /// Equivalent to glm::ortho (2D version)
+        pub fn ortho2D(left: T, right: T, bottom: T, top: T) Self {
+            return ortho(left, right, bottom, top, -1, 1);
         }
 
         /// Create translation matrix (4x4 only)
