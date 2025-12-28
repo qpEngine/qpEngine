@@ -73,12 +73,14 @@ pub fn Vector(
 
         pub const UNIT = switch (N) {
             2 => struct {
+                pub const ZERO = Self.from(0);
                 pub const LEFT = Self.unitN(0);
                 pub const RIGHT = Self.unitP(0);
                 pub const UP = Self.unitN(1);
                 pub const DOWN = Self.unitP(1);
             },
             3 => struct {
+                pub const ZERO = Self.from(0);
                 pub const LEFT = Self.unitN(0);
                 pub const RIGHT = Self.unitP(0);
                 pub const DOWN = Self.unitN(1);
@@ -144,7 +146,7 @@ pub fn Vector(
         /// Remove const from Vector pointer
         ///
         /// < *Self: Mutable Vector
-        pub inline fn ptr(
+        pub inline fn cc(
             self: *const Self,
         ) *Self {
             return @constCast(self);
@@ -475,7 +477,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) Self {
-            return self.clone().ptr().summate(other_).*;
+            return self.clone().cc().summate(other_).*;
         }
 
         /// Update Vector with Difference of vectors by components
@@ -506,7 +508,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) Self {
-            return self.clone().ptr().subtract(other_).*;
+            return self.clone().cc().subtract(other_).*;
         }
 
         /// Update Vector with Product of vectors by components
@@ -537,7 +539,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) Self {
-            return self.clone().ptr().multiply(other_).*;
+            return self.clone().cc().multiply(other_).*;
         }
 
         /// Update Vector with Quotient of vectors by components
@@ -575,7 +577,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) !Self {
-            return (try self.clone().ptr().divide(other_)).*;
+            return (try self.clone().cc().divide(other_)).*;
         }
 
         /// Update Vector with Modulus of vectors by components
@@ -613,7 +615,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) !Self {
-            return (try self.clone().ptr().modulo(other_)).*;
+            return (try self.clone().cc().modulo(other_)).*;
         }
 
         /// Update Vector with Remainder from division of vectors by components
@@ -651,7 +653,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) !Self {
-            return (try self.clone().ptr().remainder(other_)).*;
+            return (try self.clone().cc().remainder(other_)).*;
         }
 
         /// Comparison SIMD Vector of less than for vectors by components
@@ -924,22 +926,29 @@ pub fn Vector(
         ///
         /// < Self: Cross product as new Vector
         pub inline fn cross(
-            vectors_: [N - 1]Self,
-        ) Self {
+            self: *Self,
+            vectors_: switch (N) {
+                2 => void,
+                3 => [1]Self,
+                else => [N - 2]Self,
+            },
+        ) *Self {
             if (N == 2) {
-                const a = vectors_[0];
-                return .{ .comp = .{
-                    .x = a.comp.y,
-                    .y = -a.comp.x,
-                } };
+                const a = self.comp;
+                self.comp = .{
+                    .x = a.y,
+                    .y = -a.x,
+                };
+                return self;
             } else if (N == 3) {
-                const a = vectors_[0];
-                const b = vectors_[1];
-                return .{ .comp = .{
-                    .x = a.comp.y * b.comp.z - a.comp.z * b.comp.y,
-                    .y = a.comp.z * b.comp.x - a.comp.x * b.comp.z,
-                    .z = a.comp.x * b.comp.y - a.comp.y * b.comp.x,
-                } };
+                const a = self.comp;
+                const b = vectors_[0];
+                self.comp = .{
+                    .x = a.y * b.comp.z - a.z * b.comp.y,
+                    .y = a.z * b.comp.x - a.x * b.comp.z,
+                    .z = a.x * b.comp.y - a.y * b.comp.x,
+                };
+                return self;
             } else {
                 var result: [N]T = undefined;
 
@@ -948,6 +957,7 @@ pub fn Vector(
                 for (vectors_, 0..) |v, i| {
                     matrix[i] = v.simd;
                 }
+                matrix[N - 2] = self.simd;
                 matrix[N - 1] = [_]T{0} ** N;
 
                 for (0..N) |i| {
@@ -958,8 +968,20 @@ pub fn Vector(
                     matrix[N - 1][i] = 0;
                 }
 
-                return Self.from(result);
+                self.data = result;
+                return self;
             }
+        }
+
+        pub inline fn crossed(
+            self: *const Self,
+            vectors_: switch (N) {
+                2 => void,
+                3 => [1]Self,
+                else => [N - 2]Self,
+            },
+        ) Self {
+            return self.clone().cc().cross(vectors_).*;
         }
 
         /// Private
@@ -1134,7 +1156,7 @@ pub fn Vector(
         pub inline fn normalized(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().normalize().*;
+            return self.clone().cc().normalize().*;
         }
 
         /// Check if Vector is normalized to unit length
@@ -1172,7 +1194,7 @@ pub fn Vector(
         pub inline fn signedZ(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().signZ().*;
+            return self.clone().cc().signZ().*;
         }
 
         /// Update Vector with the Sign of Components
@@ -1196,7 +1218,7 @@ pub fn Vector(
         pub inline fn signed(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().sign().*;
+            return self.clone().cc().sign().*;
         }
 
         /// Update Vector with Absolute value of components
@@ -1215,7 +1237,7 @@ pub fn Vector(
         pub inline fn absoluted(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().absolute().*;
+            return self.clone().cc().absolute().*;
         }
 
         /// Compute direction vector between vectors
@@ -1323,7 +1345,7 @@ pub fn Vector(
             other_: anytype,
             time_: f32,
         ) Self {
-            return self.clone().ptr().interpolate(other_, time_).*;
+            return self.clone().cc().interpolate(other_, time_).*;
         }
 
         /// Maximum scalar of a vector
@@ -1372,7 +1394,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) Self {
-            return self.clone().ptr().maximumOf(other_).*;
+            return self.clone().cc().maximumOf(other_).*;
         }
 
         /// Update Vector with minimum components of either vectors
@@ -1403,7 +1425,7 @@ pub fn Vector(
             self: *const Self,
             other_: anytype,
         ) Self {
-            return self.clone().ptr().minimumOf(other_).*;
+            return self.clone().cc().minimumOf(other_).*;
         }
 
         /// Vector has all components updated to current maximum
@@ -1422,7 +1444,7 @@ pub fn Vector(
         pub inline fn maximized(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().maximize().*;
+            return self.clone().cc().maximize().*;
         }
 
         /// Vector has all components updated to current minimum
@@ -1441,7 +1463,7 @@ pub fn Vector(
         pub inline fn minimized(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().minimize().*;
+            return self.clone().cc().minimize().*;
         }
 
         /// Update Vector with inverse for all components
@@ -1467,7 +1489,7 @@ pub fn Vector(
         pub inline fn inversed(
             self: *Self,
         ) Self {
-            return self.clone().ptr().inverse().*;
+            return self.clone().cc().inverse().*;
         }
 
         /// Update Vector with negation for all components
@@ -1488,7 +1510,7 @@ pub fn Vector(
         pub inline fn negated(
             self: *Self,
         ) Self {
-            return self.clone().ptr().negate().*;
+            return self.clone().cc().negate().*;
         }
 
         /// Update Vector with negation and inversion of all components
@@ -1514,7 +1536,7 @@ pub fn Vector(
         pub inline fn negInversed(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().negInverse().*;
+            return self.clone().cc().negInverse().*;
         }
 
         /// Update Vector with components clamped between min and max
@@ -1552,7 +1574,7 @@ pub fn Vector(
             min_: anytype,
             max_: anytype,
         ) Self {
-            return self.clone().ptr().clamp(min_, max_).*;
+            return self.clone().cc().clamp(min_, max_).*;
         }
 
         /// Update Vector with projection onto given normal vector
@@ -1580,7 +1602,7 @@ pub fn Vector(
             self: *const Self,
             other_: Self,
         ) Self {
-            return self.clone().ptr().project(other_).*;
+            return self.clone().cc().project(other_).*;
         }
 
         // Update Vector to its rejection for a given normal vector
@@ -1613,7 +1635,7 @@ pub fn Vector(
             self: *const Self,
             normal_: Self,
         ) Self {
-            return self.clone().ptr().reject(normal_).*;
+            return self.clone().cc().reject(normal_).*;
         }
 
         /// Index of axis with minimum component
@@ -1688,7 +1710,7 @@ pub fn Vector(
             min_length_: T,
             max_length_: T,
         ) Self {
-            return self.clone().ptr().clampLength(min_length_, max_length_).*;
+            return self.clone().cc().clampLength(min_length_, max_length_).*;
         }
 
         // Update Vector moving it toward other by delta units
@@ -1744,7 +1766,7 @@ pub fn Vector(
             other_: anytype,
             delta_: f32,
         ) Self {
-            return self.clone().ptr().moveToward(other_, delta_).*;
+            return self.clone().cc().moveToward(other_, delta_).*;
         }
 
         // Update Vector to bounce off given normal vector
@@ -1775,7 +1797,7 @@ pub fn Vector(
             self: *const Self,
             normal_: Self,
         ) Self {
-            return self.clone().ptr().bounce(normal_).*;
+            return self.clone().cc().bounce(normal_).*;
         }
 
         // Update Vector to its reflection about given normal vector
@@ -1806,7 +1828,7 @@ pub fn Vector(
             self: *const Self,
             normal_: Self,
         ) Self {
-            return self.clone().ptr().reflect(normal_).*;
+            return self.clone().cc().reflect(normal_).*;
         }
 
         /// Update Vector with floor of components
@@ -1828,7 +1850,7 @@ pub fn Vector(
         pub inline fn floored(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().floor().*;
+            return self.clone().cc().floor().*;
         }
 
         /// Update Vector with ceil of components
@@ -1850,7 +1872,7 @@ pub fn Vector(
         pub inline fn ceiled(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().ceil().*;
+            return self.clone().cc().ceil().*;
         }
 
         /// Update Vector with round of components
@@ -1872,7 +1894,7 @@ pub fn Vector(
         pub inline fn rounded(
             self: *const Self,
         ) Self {
-            return self.clone().ptr().round().*;
+            return self.clone().cc().round().*;
         }
 
         /// Update Vector with snapped components to increment
@@ -1925,7 +1947,7 @@ pub fn Vector(
             self: *const Self,
             increment_: anytype,
         ) Self {
-            return self.clone().ptr().snap(increment_).*;
+            return self.clone().cc().snap(increment_).*;
         }
 
         // TODO: remaining Vector methods
@@ -2159,7 +2181,7 @@ test "Initialize" {
     // clone
     {
         const v1 = Vector(f32, 3).from(.{ 1.0, 2.0, 3.0 });
-        const v2 = v1.clone().ptr().summate(1.0).*;
+        const v2 = v1.clone().cc().summate(1.0).*;
         try testing.expectEqual([3]f32{ 1.0, 2.0, 3.0 }, v1.simd);
         try testing.expectEqual([3]f32{ 2.0, 3.0, 4.0 }, v2.simd);
     }
@@ -2293,13 +2315,50 @@ test "Dot" {
 }
 
 test "Cross" {
-    const v1 = Vector(f32, 3).from(.{ 1.0, 0.0, 0.0 });
-    const v2 = Vector(f32, 3).from(.{ 0.0, 1.0, 0.0 });
-    try testing.expectEqual(Vector(f32, 3).from(.{ 0.0, 0.0, 1.0 }).data, Vector(f32, 3).cross(.{ v1, v2 }).data);
+    // Vec2
+    {
+        var v1 = Vector(f32, 2).from(.{ 1.0, 0.0 });
+        try testing.expectEqual(Vector(f32, 2).from(.{ 0.0, -1.0 }).data, v1.crossed({}).data);
+        _ = v1.cross({});
+        try testing.expectEqual(Vector(f32, 2).from(.{ 0.0, -1.0 }).data, v1.data);
 
-    const v3 = Vector(i64, 3).from(.{ 1, 0, 0 });
-    const v4 = Vector(i64, 3).from(.{ 0, 1, 0 });
-    try testing.expectEqual(Vector(i64, 3).from(.{ 0, 0, 1 }).data, Vector(i64, 3).cross(.{ v3, v4 }).data);
+        var v3 = Vector(i64, 2).from(.{ 1, 0 });
+        try testing.expectEqual(Vector(i64, 2).from(.{ 0, -1 }).data, v3.crossed({}).data);
+        _ = v3.cross({});
+        try testing.expectEqual(Vector(i64, 2).from(.{ 0, -1 }).data, v3.data);
+    }
+
+    // Vec3
+    {
+        var v1 = Vector(f32, 3).from(.{ 1.0, 0.0, 0.0 });
+        const v2 = Vector(f32, 3).from(.{ 0.0, 1.0, 0.0 });
+        try testing.expectEqual(Vector(f32, 3).from(.{ 0.0, 0.0, 1.0 }).data, v1.crossed(.{v2}).data);
+        _ = v1.cross(.{v2});
+        try testing.expectEqual(Vector(f32, 3).from(.{ 0.0, 0.0, 1.0 }).data, v1.data);
+
+        var v3 = Vector(i64, 3).from(.{ 1, 0, 0 });
+        const v4 = Vector(i64, 3).from(.{ 0, 1, 0 });
+        try testing.expectEqual(Vector(i64, 3).from(.{ 0, 0, 1 }).data, v3.crossed(.{v4}).data);
+        _ = v3.cross(.{v4});
+        try testing.expectEqual(Vector(i64, 3).from(.{ 0, 0, 1 }).data, v3.data);
+    }
+
+    // Vec4
+    {
+        var v1 = Vector(f32, 4).from(.{ 1.0, 0.0, 0.0, 0.0 });
+        const v2 = Vector(f32, 4).from(.{ 0.0, 1.0, 0.0, 0.0 });
+        const v3 = Vector(f32, 4).from(.{ 0.0, 0.0, 1.0, 0.0 });
+        try testing.expectEqual(Vector(f32, 4).from(.{ 0.0, 0.0, 0.0, 1.0 }).data, v1.crossed(.{ v2, v3 }).data);
+        _ = v1.cross(.{ v2, v3 });
+        try testing.expectEqual(Vector(f32, 4).from(.{ 0.0, 0.0, 0.0, 1.0 }).data, v1.data);
+
+        var v4 = Vector(i64, 4).from(.{ 1, 0, 0, 0 });
+        const v5 = Vector(i64, 4).from(.{ 0, 1, 0, 0 });
+        const v6 = Vector(i64, 4).from(.{ 0, 0, 1, 0 });
+        try testing.expectEqual(Vector(i64, 4).from(.{ 0, 0, 0, 1 }).data, v4.crossed(.{ v5, v6 }).data);
+        _ = v4.cross(.{ v5, v6 });
+        try testing.expectEqual(Vector(i64, 4).from(.{ 0, 0, 0, 1 }).data, v4.data);
+    }
 }
 
 test "Content" {
@@ -2737,15 +2796,6 @@ test "Formatting" {
     var buf: [64]u8 = undefined;
     const fmt = try std.fmt.bufPrint(&buf, "{f}", .{v1});
     try testing.expect(std.mem.eql(u8, "Vector3(1.2, 2, 0.25)", fmt));
-}
-
-test "Testfunc" {
-    const vec3 = Vector(f32, 3).from(1.0);
-    const vec2 = Vector(i32, 2).from(2);
-    // const vec4 = Vector(i8, 4).from(3);
-    vec3.float.temp();
-    vec2.float.temp();
-    // vec4.testfunc();
 }
 
 const std = @import("std");

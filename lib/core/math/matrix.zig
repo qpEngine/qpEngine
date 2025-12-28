@@ -167,86 +167,6 @@ pub fn Matrix(
             return Self.from(0);
         }
 
-        /// Creates a right-handed perspective projection matrix with depth range [-1, 1] (OpenGL convention)
-        /// Equivalent to glm::perspective
-        pub fn perspective(fovy: T, aspect: T, near: T, far: T) Self {
-            comptime {
-                if (M != 4 or N != 4) @compileError("Perspective projection requires a 4x4 matrix");
-            }
-
-            const tan_half_fovy = @tan(fovy / 2);
-
-            var result = Self.zero();
-            result.data2[0][0] = 1 / (aspect * tan_half_fovy);
-            result.data2[1][1] = 1 / tan_half_fovy;
-            result.data2[2][2] = -(far + near) / (far - near);
-            result.data2[2][3] = -(2 * far * near) / (far - near);
-            result.data2[3][2] = -1;
-
-            return result;
-        }
-
-        /// Creates a right-handed perspective projection matrix with depth range [0, 1] (Vulkan/DirectX convention)
-        /// Equivalent to glm::perspectiveZO (with GLM_DEPTH_ZERO_TO_ONE)
-        pub fn perspectiveZO(fovy: T, aspect: T, near: T, far: T) Self {
-            comptime {
-                if (M != 4 or N != 4) @compileError("Perspective projection requires a 4x4 matrix");
-            }
-
-            const tan_half_fovy = @tan(fovy / 2);
-
-            var result = Self.zero();
-            result.data2[0][0] = 1 / (aspect * tan_half_fovy);
-            result.data2[1][1] = 1 / tan_half_fovy;
-            result.data2[2][2] = far / (near - far);
-            result.data2[2][3] = -(far * near) / (far - near);
-            result.data2[3][2] = -1;
-
-            return result;
-        }
-
-        /// Creates a right-handed orthographic projection matrix with depth range [-1, 1] (OpenGL convention)
-        /// Equivalent to glm::ortho
-        pub fn ortho(left: T, right: T, bottom: T, top: T, near: T, far: T) Self {
-            comptime {
-                if (M != 4 or N != 4) @compileError("Orthographic projection requires a 4x4 matrix");
-            }
-
-            var result = Self.identity();
-            result.data2[0][0] = 2 / (right - left);
-            result.data2[1][1] = 2 / (top - bottom);
-            result.data2[2][2] = -2 / (far - near);
-            result.data2[0][3] = -(right + left) / (right - left);
-            result.data2[1][3] = -(top + bottom) / (top - bottom);
-            result.data2[2][3] = -(far + near) / (far - near);
-
-            return result;
-        }
-
-        /// Creates a right-handed orthographic projection matrix with depth range [0, 1] (Vulkan/DirectX convention)
-        /// Equivalent to glm::orthoZO (with GLM_DEPTH_ZERO_TO_ONE)
-        pub fn orthoZO(left: T, right: T, bottom: T, top: T, near: T, far: T) Self {
-            comptime {
-                if (M != 4 or N != 4) @compileError("Orthographic projection requires a 4x4 matrix");
-            }
-
-            var result = Self.identity();
-            result.data2[0][0] = 2 / (right - left);
-            result.data2[1][1] = 2 / (top - bottom);
-            result.data2[2][2] = -1 / (far - near);
-            result.data2[0][3] = -(right + left) / (right - left);
-            result.data2[1][3] = -(top + bottom) / (top - bottom);
-            result.data2[2][3] = -near / (far - near);
-
-            return result;
-        }
-
-        /// Creates a 2D orthographic projection matrix (no near/far planes)
-        /// Equivalent to glm::ortho (2D version)
-        pub fn ortho2D(left: T, right: T, bottom: T, top: T) Self {
-            return ortho(left, right, bottom, top, -1, 1);
-        }
-
         /// Create translation matrix (4x4 only)
         pub fn translation(other_: Vector(T, N - 1)) Self {
             if (comptime !isSquare) @compileError("Translation requires square matrix");
@@ -324,31 +244,35 @@ pub fn Matrix(
             return ColVec.from(result);
         }
 
-        pub const rotation = switch (M) {
-            2 => struct {
-                pub inline fn rotation(angle_rad: f32) Self {
-                    if (comptime !isSquare) @compileError("Rotation matrix requires square matrix");
+        pub inline fn rotation(
+            angle_rad_: f32,
+            vectors_: switch (M) {
+                2 => void,
+                3, 4 => Vector(T, 3),
+                else => @compileError("Rotation matrix not implemented for this size"),
+            },
+        ) Self {
+            if (comptime !isSquare) @compileError("Rotation matrix requires square matrix");
+            return switch (M) {
+                2 => {
                     var result = Self.init();
-                    const c = @cos(angle_rad);
-                    const s = @sin(angle_rad);
+                    const c = @cos(angle_rad_);
+                    const s = @sin(angle_rad_);
                     result.data2[0][0] = @as(T, c);
                     result.data2[0][1] = @as(T, -s);
                     result.data2[1][0] = @as(T, s);
                     result.data2[1][1] = @as(T, c);
                     return result;
-                }
-            }.rotation,
-            3, 4 => struct {
-                inline fn rotation(angle_rad_: f32, axis_: Vector(T, 3)) Self {
-                    if (comptime !isSquare) @compileError("Rotation matrix requires square matrix");
-                    std.debug.assert(axis_.isNormalized());
+                },
+                3, 4 => {
+                    std.debug.assert(vectors_.isNormalized());
                     var result = Self.identity();
                     const c = @cos(angle_rad_);
                     const s = @sin(angle_rad_);
                     const t = 1.0 - c;
-                    const x = axis_.data[0];
-                    const y = axis_.data[1];
-                    const z = axis_.data[2];
+                    const x = vectors_.data[0];
+                    const y = vectors_.data[1];
+                    const z = vectors_.data[2];
 
                     result.data2[0][0] = t * x * x + c;
                     result.data2[0][1] = t * x * y - z * s;
@@ -360,26 +284,42 @@ pub fn Matrix(
                     result.data2[2][1] = t * z * y + x * s;
                     result.data2[2][2] = t * z * z + c;
                     return result;
-                }
-            }.rotation,
-            else => @compileError("Rotation matrix not implemented for this size"),
-        };
+                },
+                else => {},
+            };
+        }
 
-        pub const rotate = switch (M) {
-            2 => struct {
-                pub inline fn rotate(self: *Self, angle_rad_: f32) *Self {
+        pub inline fn rotate(
+            self: *Self,
+            angle_rad_: f32,
+            axis_: switch (M) {
+                2 => void,
+                3, 4 => Vector(T, 3),
+                else => @compileError("Rotate not implemented for this size"),
+            },
+        ) *Self {
+            return switch (M) {
+                2 => {
                     const rot_mat = Self.rotation(angle_rad_);
                     return self.multiplySq(rot_mat);
-                }
-            }.rotate,
-            3, 4 => struct {
-                pub inline fn rotate(self: *Self, angle_rad_: f32, axis_: Vector(T, 3)) *Self {
+                },
+                3, 4 => {
                     const rot_mat = Self.rotation(angle_rad_, axis_);
                     return self.multiplySq(rot_mat);
+                },
+                else => {},
+            };
+        }
+
+        pub inline fn transpose(self: *const Self) Transpose {
+            var result: Transpose = undefined;
+            inline for (0..M) |m| {
+                inline for (0..N) |n| {
+                    result.data2[n][m] = self.data2[m][n];
                 }
-            }.rotate,
-            else => @compileError("Rotate not implemented for this size"),
-        };
+            }
+            return result;
+        }
     };
 }
 
