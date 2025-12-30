@@ -175,6 +175,7 @@ pub fn main() !void {
         cube_shader.setVec3("objectColor", .{ 1.0, 0.5, 0.31 });
         cube_shader.setVec3("lightColor", .{ 1.0, 1.0, 1.0 });
         cube_shader.setVec3("lightPos", _LIGHT_POS_.data);
+        cube_shader.setVec3("viewPos", _CAMERA.position.data);
 
         const projection = QP_.math.perspective(
             f32,
@@ -189,6 +190,9 @@ pub fn main() !void {
 
         const model = Mat4.identity();
         cube_shader.setMat4("model", model.root());
+
+        const normal_matrix = model.inversed().cc().transpose().*;
+        cube_shader.setMat4("normalMatrix", normal_matrix.root());
 
         GL_.bindVertexArray(cube_VAO);
         GL_.drawArrays(GL_.TRIANGLES, 0, 36);
