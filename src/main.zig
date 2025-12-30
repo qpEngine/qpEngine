@@ -48,52 +48,52 @@ pub fn main() !void {
     const vertices = [_]f32{ // zig fmt: off
         // positions from top left CCW, coords from top right CW
         // pos             // coords
-        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
-         0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
-         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
-         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
-        -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
-        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0,
+         0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 0.0,
+         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0,
+         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0,
+        -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 1.0,
+        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0,
         // front face
 
-        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
-         0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
-         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
-         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
-        -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
-        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,   0.0, 0.0,
+         0.5, -0.5,  0.5,  0.0,  0.0, 1.0,   1.0, 0.0,
+         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,   1.0, 1.0,
+         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,   1.0, 1.0,
+        -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,   0.0, 1.0,
+        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,   0.0, 0.0,
         // back face
 
-        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
-        -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,
-        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
-        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
-        -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,
-        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0,
+        -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,  1.0, 1.0,
+        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0,
+        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0,
+        -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,  0.0, 0.0,
+        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0,
         // left face
 
-         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
-         0.5,  0.5, -0.5,  1.0,  0.0,  0.0,
-         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
-         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
-         0.5, -0.5,  0.5,  1.0,  0.0,  0.0,
-         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0,
+         0.5,  0.5, -0.5,  1.0,  0.0,  0.0,  1.0, 1.0,
+         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0,
+         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0,
+         0.5, -0.5,  0.5,  1.0,  0.0,  0.0,  0.0, 0.0,
+         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0,
          // right face
 
-        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
-         0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
-         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
-         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
-        -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
-        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0,
+         0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  1.0, 1.0,
+         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0,
+         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0,
+        -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  0.0, 0.0,
+        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0,
         // bottom face
 
-        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
-         0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
-         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
-         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
-        -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
-        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0
+        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0,
+         0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  1.0, 1.0,
+         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0,
+         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0,
+        -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  0.0, 0.0,
+        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0
         // top face
     }; // zig fmt: on
 
@@ -143,19 +143,27 @@ pub fn main() !void {
     var cube_VBO: GL_.Uint = Tlib_.createVBO(&vertices);
     defer GL_.deleteBuffers(1, &cube_VBO);
 
-    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 6 * @sizeOf(f32), null);
+    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), null);
     GL_.enableVertexAttribArray(0);
-    GL_.vertexAttribPointer(1, 3, GL_.FLOAT, GL_.FALSE, 6 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
+    GL_.vertexAttribPointer(1, 3, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
     GL_.enableVertexAttribArray(1);
+    GL_.vertexAttribPointer(2, 2, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(6 * @sizeOf(f32))));
+    GL_.enableVertexAttribArray(2);
 
     var light_VAO: GL_.Uint = Tlib_.createVAO();
     defer GL_.deleteVertexArrays(1, &light_VAO);
 
     GL_.bindBuffer(GL_.ARRAY_BUFFER, cube_VBO);
-    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 6 * @sizeOf(f32), null);
+    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), null);
     GL_.enableVertexAttribArray(0);
 
     // GL_.polygonMode(GL_.FRONT_AND_BACK, GL_.FILL);
+
+    const diffuse_map = try Texture.init("misc/textures/container2.png", true);
+    const specular_map = try Texture.init("misc/textures/container2_specular.png", true);
+    cube_shader.use();
+    cube_shader.setInt("material.diffuse", 0);
+    cube_shader.setInt("material.specular", 1);
 
     _CAMERA = Camera.from(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null, false);
 
@@ -172,10 +180,7 @@ pub fn main() !void {
         GL_.clear(GL_.COLOR_BUFFER_BIT | GL_.DEPTH_BUFFER_BIT);
 
         cube_shader.use();
-        cube_shader.setVec3("material.ambient", .{ 1.0, 0.5, 0.31 });
-        cube_shader.setVec3("material.diffuse", .{ 1.0, 0.5, 0.31 });
-        cube_shader.setVec3("material.specular", .{ 0.5, 0.5, 0.5 });
-        cube_shader.setFloat("material.shininess", 32.0);
+        cube_shader.setFloat("material.shininess", 64.0);
 
         cube_shader.setVec3("light.ambient", .{ 0.2, 0.2, 0.2 });
         cube_shader.setVec3("light.diffuse", .{ 0.5, 0.5, 0.5 });
@@ -200,6 +205,11 @@ pub fn main() !void {
 
         const normal_matrix = model.inversed().cc().transpose().*;
         cube_shader.setMat4("normalMatrix", normal_matrix.root());
+
+        GL_.activeTexture(GL_.TEXTURE0);
+        GL_.bindTexture(GL_.TEXTURE_2D, diffuse_map.ID);
+        GL_.activeTexture(GL_.TEXTURE1);
+        GL_.bindTexture(GL_.TEXTURE_2D, specular_map.ID);
 
         GL_.bindVertexArray(cube_VAO);
         GL_.drawArrays(GL_.TRIANGLES, 0, 36);
