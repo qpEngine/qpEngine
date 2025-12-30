@@ -45,280 +45,249 @@
 //
 
 pub fn main() !void {
-    // var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    // defer std.debug.assert(gpa.deinit() != .leak);
-    // const allocator = gpa.allocator();
+    const vertices = [_]f32{ // zig fmt: off
+        // positions from top left CCW, coords from top right CW
+        // pos             // coords
+        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+         0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+        -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,
+        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,
+        // front face
 
-    try glfw.init();
-    defer glfw.terminate();
+        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+         0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+        -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,
+        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,
+        // back face
 
-    stbi.init(std.heap.page_allocator);
-    defer stbi.deinit();
+        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+        -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,
+        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
+        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,
+        -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,
+        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,
+        // left face
 
-    glfw.windowHint(.context_version_major, gl_major);
-    glfw.windowHint(.context_version_minor, gl_minor);
-    glfw.windowHint(.opengl_profile, .opengl_core_profile);
-    // glfw.windowHint(.opengl_forward_compat, true);  //  NOTE: necessary for macOS
+         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+         0.5,  0.5, -0.5,  1.0,  0.0,  0.0,
+         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
+         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,
+         0.5, -0.5,  0.5,  1.0,  0.0,  0.0,
+         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,
+         // right face
 
-    const window = try glfw.Window.create(winWidth, winHeight, "qpEngine", null);
+        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+         0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+        -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,
+        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,
+        // bottom face
+
+        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
+         0.5,  0.5, -0.5,  0.0,  1.0,  0.0,
+         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+        -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,
+        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0
+        // top face
+    }; // zig fmt: on
+
+    try Glfw_.init();
+    defer Glfw_.terminate();
+
+    Stbi_.init(Std_.heap.page_allocator);
+    defer Stbi_.deinit();
+
+    Glfw_.windowHint(.context_version_major, _GL_MAJOR_);
+    Glfw_.windowHint(.context_version_minor, _GL_MINOR_);
+    Glfw_.windowHint(.opengl_profile, .opengl_core_profile);
+    if (Builtin_.os.tag == .macos) {
+        Glfw_.windowHint(.opengl_forward_compat, true); // necessary for macOS
+    }
+
+    const window = try Glfw_.Window.create(_WIN_WIDTH_, _WIN_HEIGHT_, "qpEngine", null);
     defer window.destroy();
 
-    glfw.makeContextCurrent(window); // make our window the current context of the current thread
-    try zopengl.loadCoreProfile(glfw.getProcAddress, gl_major, gl_minor);
-    gl.viewport(0, 0, winWidth, winHeight);
-    _ = glfw.setFramebufferSizeCallback(window, framebufferSizeCallback);
-    try glfw.setInputMode(window, glfw.InputMode.cursor, glfw.Cursor.Mode.disabled);
-    _ = glfw.setCursorPosCallback(window, mouseCallback);
-    _ = glfw.setScrollCallback(window, scrollCallback);
+    Glfw_.makeContextCurrent(window);
+    try Opengl_.loadCoreProfile(Glfw_.getProcAddress, _GL_MAJOR_, _GL_MINOR_);
+    _ = Glfw_.setFramebufferSizeCallback(window, framebufferSizeCallback);
+    try Glfw_.setInputMode(window, Glfw_.InputMode.cursor, Glfw_.Cursor.Mode.disabled);
+    _ = Glfw_.setCursorPosCallback(window, mouseCallback);
+    _ = Glfw_.setScrollCallback(window, scrollCallback);
+    GL_.enable(GL_.DEPTH_TEST);
 
-    var VAO: gl.Uint = tlib.createVAO();
-    defer gl.deleteVertexArrays(1, &VAO);
+    // build and compile our shader programs
+    var cube_shader = try Shader.init(
+        "src/shaders/chapter1/1.colors.vert",
+        "src/shaders/chapter1/1.colors.frag",
+        Std_.heap.page_allocator,
+    );
+    defer cube_shader.deinit();
 
-    var VBO: gl.Uint = tlib.createVBO(&vertices);
-    defer gl.deleteBuffers(1, &VBO);
+    var light_shader = try Shader.init(
+        "src/shaders/chapter1/1.light.vert",
+        "src/shaders/chapter1/1.light.frag",
+        Std_.heap.page_allocator,
+    );
+    defer light_shader.deinit();
 
-    var EBO: gl.Uint = tlib.createEBO(&indices);
-    defer gl.deleteBuffers(1, &EBO);
+    // Configure cube's VAO and VBO
+    var cube_VAO: GL_.Uint = Tlib_.createVAO();
+    defer GL_.deleteVertexArrays(1, &cube_VAO);
 
-    gl.vertexAttribPointer(0, 3, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), null);
-    gl.vertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, 5 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
-    gl.enableVertexAttribArray(0);
-    gl.enableVertexAttribArray(1);
+    var cube_VBO: GL_.Uint = Tlib_.createVBO(&vertices);
+    defer GL_.deleteBuffers(1, &cube_VBO);
 
-    gl.polygonMode(gl.FRONT_AND_BACK, gl.FILL);
+    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 6 * @sizeOf(f32), null);
+    GL_.enableVertexAttribArray(0);
+    GL_.vertexAttribPointer(1, 3, GL_.FLOAT, GL_.FALSE, 6 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
+    GL_.enableVertexAttribArray(1);
 
-    var shader = try Shader.init("src/shaders/tex_transform.vert", "src/shaders/tex.frag", std.heap.page_allocator);
-    defer shader.deinit();
+    var light_VAO: GL_.Uint = Tlib_.createVAO();
+    defer GL_.deleteVertexArrays(1, &light_VAO);
 
-    Texture.setParams(gl.REPEAT, gl.REPEAT, gl.LINEAR_MIPMAP_LINEAR, gl.NEAREST);
-    const floorTexture = try Texture.init("misc/textures/wall.jpg", false);
-    const faceTexture = try Texture.init("misc/textures/awesomeface.png", true);
+    GL_.bindBuffer(GL_.ARRAY_BUFFER, cube_VBO);
+    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 6 * @sizeOf(f32), null);
+    GL_.enableVertexAttribArray(0);
 
-    gl.enable(gl.DEPTH_TEST);
-    camera = Camera.from(Vec3{ .data = .{ 0.0, 0.0, 3.0 } }, null, null, null, true);
+    // GL_.polygonMode(GL_.FRONT_AND_BACK, GL_.FILL);
+
+    _CAMERA = Camera.from(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null, false);
 
     // --- RENDER LOOP
     while (!window.shouldClose()) {
-        const currentFrame: f32 = @floatCast(glfw.getTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        const currentFrame: f32 = @floatCast(Glfw_.getTime());
+        _DELTA_TIME = currentFrame - _LAST_FRAME;
+        _LAST_FRAME = currentFrame;
 
         processInput(window);
 
-        gl.clearColor(0.16, 0.12, 0.07, 1.0); // background color
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // GL_.clearColor(0.16, 0.12, 0.07, 1.0); // dark brown
+        GL_.clearColor(0.1, 0.1, 0.1, 1.0); // dark gray
+        GL_.clear(GL_.COLOR_BUFFER_BIT | GL_.DEPTH_BUFFER_BIT);
 
-        gl.bindVertexArray(VAO);
+        cube_shader.use();
+        cube_shader.setVec3("objectColor", .{ 1.0, 0.5, 0.31 });
+        cube_shader.setVec3("lightColor", .{ 1.0, 1.0, 1.0 });
+        cube_shader.setVec3("lightPos", _LIGHT_POS_.data);
 
-        gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, floorTexture.ID);
-        shader.setInt("floorTexture", 0);
-
-        gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, faceTexture.ID);
-        shader.setInt("faceTexture", 1);
-
-        shader.setFloat("mixFactor", mixFactor);
-
-        const view = camera.getViewMatrix();
-        shader.setMat4("view", view.root());
-
-        const projection = qp.math.perspective(
+        const projection = QP_.math.perspective(
             f32,
-            qp.math.radians(camera.zoom),
-            @as(f32, winWidth) / @as(f32, winHeight),
+            QP_.math.radians(_CAMERA.zoom),
+            @as(f32, _WIN_WIDTH_) / @as(f32, _WIN_HEIGHT_),
             0.1,
             100.0,
         );
-        shader.setMat4("projection", projection.root());
+        const view = _CAMERA.getViewMatrix();
+        cube_shader.setMat4("projection", projection.root());
+        cube_shader.setMat4("view", view.root());
 
-        shader.use();
+        const model = Mat4.identity();
+        cube_shader.setMat4("model", model.root());
 
-        for (0..10) |i| {
-            const i_: f32 = @floatFromInt(i);
-            var model = Mat4.identity();
-            _ = model.translate(cubePositions[i]);
-            var axis = Vec3{ .data = .{ i_, 0.3, i_ * 0.5 } };
-            _ = axis.normalize();
-            const angle = (i_ + 1.0) * @as(f32, @floatCast(glfw.getTime()));
-            // var axis = Vec3{ .data = .{ 1.0, 0.3, 0.5 } };
-            // _ = axis.normalize();
-            // const angle = 20.0 * i_;
-            _ = model.rotate(qp.math.radians(angle), axis);
-            shader.setMat4("model", model.root());
+        GL_.bindVertexArray(cube_VAO);
+        GL_.drawArrays(GL_.TRIANGLES, 0, 36);
 
-            gl.drawArrays(gl.TRIANGLES, 0, 36);
-        }
+        light_shader.use();
+        light_shader.setMat4("projection", projection.root());
+        light_shader.setMat4("view", view.root());
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, EBO);
-        // gl.drawElements(gl.TRIANGLES, indices.len, gl.UNSIGNED_INT, null);
-        gl.drawArrays(gl.TRIANGLES, 0, 36);
+        var light_model = Mat4.identity().cc()
+            .translate(_LIGHT_POS_)
+            .scale(Vec3.from(0.2)).*;
+        light_shader.setMat4("model", light_model.root());
+        GL_.bindVertexArray(light_VAO);
+        GL_.drawArrays(GL_.TRIANGLES, 0, 36);
 
         window.swapBuffers();
-        glfw.pollEvents();
+        Glfw_.pollEvents();
     }
 
-    std.debug.print("qpEngine\n", .{});
+    Std_.debug.print("qpEngine\n", .{});
 }
 
-fn processInput(window: *glfw.Window) void {
-    if (glfw.getKey(window, .escape) == glfw.Action.press) {
-        glfw.setWindowShouldClose(window, true);
+fn processInput(window: *Glfw_.Window) void {
+    if (Glfw_.getKey(window, .escape) == Glfw_.Action.press) {
+        Glfw_.setWindowShouldClose(window, true);
     }
 
-    if (glfw.getKey(window, .up) == glfw.Action.press) {
-        mixFactor += 0.01;
-        if (mixFactor >= 1.0) mixFactor = 1.0;
+    if (Glfw_.getKey(window, .w) == Glfw_.Action.press) {
+        _CAMERA.processKeyboard(.FORWARD, _DELTA_TIME);
     }
-
-    if (glfw.getKey(window, .down) == glfw.Action.press) {
-        mixFactor -= 0.01;
-        if (mixFactor <= 0.0) mixFactor = 0.0;
+    if (Glfw_.getKey(window, .s) == Glfw_.Action.press) {
+        _CAMERA.processKeyboard(.BACKWARD, _DELTA_TIME);
     }
-
-    if (glfw.getKey(window, .w) == glfw.Action.press) {
-        camera.processKeyboard(.FORWARD, deltaTime);
+    if (Glfw_.getKey(window, .a) == Glfw_.Action.press) {
+        _CAMERA.processKeyboard(.LEFT, _DELTA_TIME);
     }
-    if (glfw.getKey(window, .s) == glfw.Action.press) {
-        camera.processKeyboard(.BACKWARD, deltaTime);
-    }
-    if (glfw.getKey(window, .a) == glfw.Action.press) {
-        camera.processKeyboard(.LEFT, deltaTime);
-    }
-    if (glfw.getKey(window, .d) == glfw.Action.press) {
-        camera.processKeyboard(.RIGHT, deltaTime);
+    if (Glfw_.getKey(window, .d) == Glfw_.Action.press) {
+        _CAMERA.processKeyboard(.RIGHT, _DELTA_TIME);
     }
 }
 
-fn mouseCallback(window: *glfw.Window, xpos: f64, ypos: f64) callconv(.c) void {
+fn mouseCallback(window: *Glfw_.Window, xpos: f64, ypos: f64) callconv(.c) void {
     _ = window;
 
-    if (firstMouse) {
-        lastX = @floatCast(xpos);
-        lastY = @floatCast(ypos);
-        firstMouse = false;
+    if (_FIRSTMOUSE) {
+        _LAST_X = @floatCast(xpos);
+        _LAST_Y = @floatCast(ypos);
+        _FIRSTMOUSE = false;
     }
 
-    const xoffset: f32 = @as(f32, @floatCast(xpos)) - lastX;
-    const yoffset: f32 = lastY - @as(f32, @floatCast(ypos)); // reversed since y-coordinates go from bottom to top
-    lastX = @as(f32, @floatCast(xpos));
-    lastY = @as(f32, @floatCast(ypos));
+    const xoffset: f32 = @as(f32, @floatCast(xpos)) - _LAST_X;
+    const yoffset: f32 = _LAST_Y - @as(f32, @floatCast(ypos)); // reversed since y-coordinates go from bottom to top
+    _LAST_X = @as(f32, @floatCast(xpos));
+    _LAST_Y = @as(f32, @floatCast(ypos));
 
-    camera.processMouseMovement(xoffset, yoffset, true);
+    _CAMERA.processMouseMovement(xoffset, yoffset, true);
 }
 
-fn scrollCallback(_: *glfw.Window, xoffset: f64, yoffset: f64) callconv(.c) void {
+fn scrollCallback(_: *Glfw_.Window, xoffset: f64, yoffset: f64) callconv(.c) void {
     _ = xoffset;
 
-    camera.processMouseScroll(@floatCast(yoffset));
+    _CAMERA.processMouseScroll(@floatCast(yoffset));
 }
 
-fn framebufferSizeCallback(_: *glfw.Window, width: c_int, height: c_int) callconv(.c) void {
-    gl.viewport(0, 0, width, height);
+fn framebufferSizeCallback(_: *Glfw_.Window, width: c_int, height: c_int) callconv(.c) void {
+    GL_.viewport(0, 0, width, height);
 }
 
-var mixFactor: f32 = 0.3; // used in the fragment shader to mix the two textures
+var _CAMERA = Camera.init();
+var _DELTA_TIME: f32 = 0.0; // time between current frame and last frame
+var _LAST_FRAME: f32 = 0.0; // time of last frame
 
-// var camera = Camera.init(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null);
-var camera = Camera.init();
-var deltaTime: f32 = 0.0; // time between current frame and last frame
-var lastFrame: f32 = 0.0; // time of last frame
+var _LAST_X: f32 = @as(f32, _WIN_WIDTH_) / 2.0;
+var _LAST_Y: f32 = @as(f32, _WIN_HEIGHT_) / 2.0;
+var _FIRSTMOUSE: bool = true;
 
-var lastX: f32 = @as(f32, winWidth) / 2.0;
-var lastY: f32 = @as(f32, winHeight) / 2.0;
-var firstMouse: bool = true;
+const _LIGHT_POS_: Vec3 = Vec3{ .data = .{ 1.2, 1.0, 2.0 } };
 
-const gl_major = 3;
-const gl_minor = 3;
+const _GL_MAJOR_ = 3;
+const _GL_MINOR_ = 3;
 
-const winHeight = 600;
-const winWidth = 800;
+const _WIN_HEIGHT_ = 600;
+const _WIN_WIDTH_ = 800;
 
-// zig fmt: off
-const vertices = [_]f32{
-    // positions from top left CCW, coords from top right CW
-    // pos             // coords
-    -0.5, -0.5, -0.5,  0.0, 0.0,
-     0.5, -0.5, -0.5,  1.0, 0.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-    -0.5,  0.5, -0.5,  0.0, 1.0,
-    -0.5, -0.5, -0.5,  0.0, 0.0,
+const Std_ = @import("std");
+const Builtin_ = @import("builtin");
+const QP_ = @import("qp");
+const Glfw_ = @import("zglfw");
+const Stbi_ = @import("zstbi");
+const Opengl_ = @import("zopengl");
+const GL_ = Opengl_.bindings;
+const Tlib_ = @import("templib.zig");
 
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-     0.5, -0.5,  0.5,  1.0, 0.0,
-     0.5,  0.5,  0.5,  1.0, 1.0,
-     0.5,  0.5,  0.5,  1.0, 1.0,
-    -0.5,  0.5,  0.5,  0.0, 1.0,
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-
-    -0.5,  0.5,  0.5,  1.0, 0.0,
-    -0.5,  0.5, -0.5,  1.0, 1.0,
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-    -0.5,  0.5,  0.5,  1.0, 0.0,
-
-     0.5,  0.5,  0.5,  1.0, 0.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-     0.5, -0.5, -0.5,  0.0, 1.0,
-     0.5, -0.5, -0.5,  0.0, 1.0,
-     0.5, -0.5,  0.5,  0.0, 0.0,
-     0.5,  0.5,  0.5,  1.0, 0.0,
-
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-     0.5, -0.5, -0.5,  1.0, 1.0,
-     0.5, -0.5,  0.5,  1.0, 0.0,
-     0.5, -0.5,  0.5,  1.0, 0.0,
-    -0.5, -0.5,  0.5,  0.0, 0.0,
-    -0.5, -0.5, -0.5,  0.0, 1.0,
-
-    -0.5,  0.5, -0.5,  0.0, 1.0,
-     0.5,  0.5, -0.5,  1.0, 1.0,
-     0.5,  0.5,  0.5,  1.0, 0.0,
-     0.5,  0.5,  0.5,  1.0, 0.0,
-    -0.5,  0.5,  0.5,  0.0, 0.0,
-    -0.5,  0.5, -0.5,  0.0, 1.0
-}; // zig fmt: on
-
-const cubePositions = [_]Vec3{ // zig fmt: off
-    Vec3{ .data = .{ 0.0,  0.0,   0.0} },
-    Vec3{ .data = .{ 2.0,  5.0, -15.0} },
-    Vec3{ .data = .{-1.5, -2.2,  -2.5} },
-    Vec3{ .data = .{-3.8, -2.0, -12.3} },
-    Vec3{ .data = .{ 2.4, -0.4,  -3.5} },
-    Vec3{ .data = .{-1.7,  3.0,  -7.5} },
-    Vec3{ .data = .{ 1.3, -2.0,  -2.5} },
-    Vec3{ .data = .{ 1.5,  2.0,  -2.5} },
-    Vec3{ .data = .{ 1.5,  0.2,  -1.5} },
-    Vec3{ .data = .{-1.3,  1.0,  -1.5} },
-}; // zig fmt: on
-
-const indices = [_]u32{
-    0, 1, 3, // first triangle
-    1, 2, 3, // second triangle
-};
-
-const std = @import("std");
-const qp = @import("qp");
-const glfw = @import("zglfw");
-const stbi = @import("zstbi");
-const zopengl = @import("zopengl");
-const gl = zopengl.bindings;
-
-const tlib = @import("templib.zig");
 const Shader = @import("resources/shader.zig").Shader;
 const Texture = @import("resources/texture.zig").Texture;
 const Camera = @import("resources/camera.zig").Camera;
 
-const Allocator = std.mem.Allocator;
-const Regex = qp.util.Regex;
-const RegexMatch = qp.util.RegexMatch;
-const tests = std.testing;
-
-const Vector = qp.math.Vector;
-const Matrix = qp.math.Matrix;
-
+const Vector = QP_.math.Vector;
+const Matrix = QP_.math.Matrix;
 const Mat4 = Matrix(f32, 4, 4);
 const Vec3 = Vector(f32, 3);
 const Vec4 = Vector(f32, 4);

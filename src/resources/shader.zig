@@ -141,6 +141,10 @@ pub const Shader = struct {
         gl.uniform4f(gl.getUniformLocation(self.ID, name), v0, v1, v2, v3);
     }
 
+    pub fn setVec3(self: *Shader, name: [*c]const u8, vec: [3]f32) void {
+        gl.uniform3fv(gl.getUniformLocation(self.ID, name), 1, @ptrCast(&vec));
+    }
+
     pub fn setMat4(self: *Shader, name: [*c]const u8, mat: [*]const f32) void {
         // gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.FALSE, mat);
         gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.TRUE, mat);

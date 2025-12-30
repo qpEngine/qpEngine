@@ -108,6 +108,10 @@ pub fn Vector(
         const BoolInt = @Type(.{ .int = .{ .signedness = .unsigned, .bits = N } });
         // zig fmt: on
 
+        pub const VError = error{
+            DivideByZero,
+        };
+
         inline fn scalar(comptime I: type) type {
             const info = @typeInfo(I);
             return if (info == .int or info == .comptime_int) R else T;
@@ -118,9 +122,14 @@ pub fn Vector(
             return if (info == .int or info == .comptime_int) comptime_int else comptime_float;
         }
 
-        pub const VError = error{
-            DivideByZero,
-        };
+        /// Remove const from Vector pointer
+        ///
+        /// < *Self: Mutable Vector
+        pub inline fn cc(
+            self: *const Self,
+        ) *Self {
+            return @constCast(self);
+        }
 
         /// Default initialization
         /// Vector components are set to undefined
@@ -128,6 +137,15 @@ pub fn Vector(
         /// < Self: A new Vector
         pub inline fn init() Self {
             return .{ .simd = undefined };
+        }
+
+        /// Create copy of current Vector
+        ///
+        /// < Self: Copied Vector
+        pub inline fn clone(
+            self: *const Self,
+        ) Self {
+            return .{ .simd = self.simd };
         }
 
         /// Comprehensive initialization
@@ -141,24 +159,6 @@ pub fn Vector(
             value_: anytype,
         ) Self {
             return .{ .simd = vectorFromAny(value_, 0) };
-        }
-
-        /// Remove const from Vector pointer
-        ///
-        /// < *Self: Mutable Vector
-        pub inline fn cc(
-            self: *const Self,
-        ) *Self {
-            return @constCast(self);
-        }
-
-        /// Create copy of current Vector
-        ///
-        /// < Self: Copied Vector
-        pub inline fn clone(
-            self: *const Self,
-        ) Self {
-            return .{ .simd = self.simd };
         }
 
         /// Creates a new Vector of size M from current Vector
@@ -2003,7 +2003,7 @@ inline fn isNumeric(comptime T: type) bool {
     };
 }
 
-// BEGIN: Vector Tests
+// TESTING:
 test "Initialize" {
 
     // useful data
