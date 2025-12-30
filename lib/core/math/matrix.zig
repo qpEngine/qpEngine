@@ -488,38 +488,10 @@ pub fn Matrix(
                     },
                 };
 
-                // var result: Self = .{
-                //     .data1 = .{
-                //         // Row 0
-                //         (m[1][1] * coef00 - m[1][2] * coef04 + m[1][3] * coef08),
-                //         -(m[0][1] * coef00 - m[0][2] * coef04 + m[0][3] * coef08),
-                //         (m[0][1] * coef02 - m[0][2] * coef06 + m[0][3] * coef10),
-                //         -(m[0][1] * coef03 - m[0][2] * coef07 + m[0][3] * coef11),
-                //         // Row 1
-                //         -(m[1][0] * coef00 - m[1][2] * coef12 + m[1][3] * coef16),
-                //         (m[0][0] * coef00 - m[0][2] * coef12 + m[0][3] * coef16),
-                //         -(m[0][0] * coef02 - m[0][2] * coef14 + m[0][3] * coef18),
-                //         (m[0][0] * coef03 - m[0][2] * coef15 + m[0][3] * coef19),
-                //         // Row 2
-                //         (m[1][0] * coef04 - m[1][1] * coef12 + m[1][3] * coef20),
-                //         -(m[0][0] * coef04 - m[0][1] * coef12 + m[0][3] * coef20),
-                //         (m[0][0] * coef06 - m[0][1] * coef14 + m[0][3] * coef22),
-                //         -(m[0][0] * coef07 - m[0][1] * coef15 + m[0][3] * coef23),
-                //         // Row 3
-                //         -(m[1][0] * coef08 - m[1][1] * coef16 + m[1][2] * coef20),
-                //         (m[0][0] * coef08 - m[0][1] * coef16 + m[0][2] * coef20),
-                //         -(m[0][0] * coef10 - m[0][1] * coef18 + m[0][2] * coef22),
-                //         (m[0][0] * coef11 - m[0][1] * coef19 + m[0][2] * coef23),
-                //     },
-                // };
-                // const det =
-                //     m[0][0] * result.data2[0][0] +
-                //     m[0][1] * result.data2[1][0] +
-                //     m[0][2] * result.data2[2][0] +
-                //     m[0][3] * result.data2[3][0];
                 const col0 = V{ result.data2[0][0], result.data2[1][0], result.data2[2][0], result.data2[3][0] };
                 const det = @reduce(.Add, self.simd2[0] * col0);
                 std.debug.assert(@abs(det) > std.math.floatEps(T));
+
                 const inv_det = 1.0 / det;
                 _ = result.multiplyScalar(inv_det);
 
@@ -715,100 +687,119 @@ test "Matrix inverse: A^-1 * A = I" {
         const inv = m.inversed();
         const product = inv.multipliedSq(m);
         // try testing.expectEqual(Mat4.identity().data2, product.data2);
-        const tolerance: @TypeOf(m).W = @splat(1e-5);
+        const tolerance: @TypeOf(m).W = @splat(1e-6);
         const difference: @TypeOf(m).W = @abs(product.simd1 - Mat4.identity().simd1);
         try testing.expect(@reduce(.And, difference <= tolerance));
     }
 }
 
-// test "Matrix inverse: (A^-1)^-1 = A" {
-//     const Mat3x3 = Matrix(f32, 3, 3);
-//
-//     var m = Mat3x3{
-//         .data2 = .{
-//             .{ 2, 1, 1 },
-//             .{ 1, 2, 1 },
-//             .{ 1, 1, 2 },
-//         },
-//     };
-//
-//     const inv = m.inverse();
-//     const inv_inv = inv.inverse();
-//
-//     for (0..3) |i| {
-//         for (0..3) |j| {
-//             try testing.expectApproxEqAbs(
-//                 m.data2[i][j],
-//                 inv_inv.data2[i][j],
-//                 1e-5,
-//             );
-//         }
-//     }
-// }
-//
-// test "Matrix inverse and transpose: (A^T)^-1 = (A^-1)^T" {
-//     const Mat3x3 = Matrix(f32, 3, 3);
-//
-//     var m = Mat3x3{
-//         .data2 = .{
-//             .{ 1, 0, 2 },
-//             .{ 2, 1, 0 },
-//             .{ 0, 1, 1 },
-//         },
-//     };
-//
-//     const mt_inv = m.transpose().inverse();
-//     const inv_mt = m.inverse().transpose();
-//
-//     for (0..3) |i| {
-//         for (0..3) |j| {
-//             try testing.expectApproxEqAbs(
-//                 mt_inv.data2[i][j],
-//                 inv_mt.data2[i][j],
-//                 1e-5,
-//             );
-//         }
-//     }
-// }
-//
-// test "Matrix inverse: known 2x2 result" {
-//     const Mat2x2 = Matrix(f32, 2, 2);
-//
-//     var m = Mat2x2{
-//         .data2 = .{
-//             .{ 1, 2 },
-//             .{ 3, 4 },
-//         },
-//     };
-//
-//     const inv = m.inverse();
-//
-//     // Determinant = -2, so inverse should be:
-//     // [-2, 1]
-//     // [1.5, -0.5]
-//     try testing.expectApproxEqAbs(@as(f32, -2.0), inv.data2[0][0], 1e-5);
-//     try testing.expectApproxEqAbs(@as(f32, 1.0), inv.data2[0][1], 1e-5);
-//     try testing.expectApproxEqAbs(@as(f32, 1.5), inv.data2[1][0], 1e-5);
-//     try testing.expectApproxEqAbs(@as(f32, -0.5), inv.data2[1][1], 1e-5);
-// }
-//
-// test "Matrix transpose: 1x1 matrix" {
-//     const Mat1x1 = Matrix(f32, 1, 1);
-//
-//     var m = Mat1x1{ .data2 = .{.{42.0}} };
-//     const mt = m.transpose();
-//
-//     try testing.expectApproxEqAbs(@as(f32, 42.0), mt.data2[0][0], 1e-6);
-// }
-//
-// test "Matrix inverse: 1x1 matrix" {
-//     const Mat1x1 = Matrix(f32, 1, 1);
-//
-//     var m = Mat1x1{ .data2 = .{.{4.0}} };
-//     const inv = m.inverse();
-//
-//     try testing.expectApproxEqAbs(@as(f32, 0.25), inv.data2[0][0], 1e-6);
-// }
+test "Matrix inverse: (A^-1)^-1 = A" {
+    { // 2x2
+        var m = Mat2{
+            .data2 = .{
+                .{ 4, 7 },
+                .{ 2, 6 },
+            },
+        };
+
+        var inv = m.inversed();
+        _ = inv.inverse();
+        // const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const tolerance: @TypeOf(m).W = @splat(1e-6);
+        const difference: @TypeOf(m).W = @abs(inv.simd1 - m.simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 3x3
+        var m = Mat3{
+            .data2 = .{
+                .{ 3, 0, 2 },
+                .{ 2, 0, -2 },
+                .{ 0, 1, 1 },
+            },
+        };
+
+        var inv = m.inversed();
+        _ = inv.inverse();
+        const tolerance: @TypeOf(m).W = @splat(1e-5);
+        const difference: @TypeOf(m).W = @abs(inv.simd1 - m.simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 4x4
+        var m = Mat4{
+            .data2 = .{
+                .{ 1, 2, 3, 4 },
+                .{ 0, 1, 4, 5 },
+                .{ 5, 6, 0, 7 },
+                .{ 8, 9, 10, 1 },
+            },
+        };
+
+        var inv = m.inversed();
+        _ = inv.inverse();
+        // try testing.expectEqual(Mat4.identity().data2, product.data2);
+        const tolerance: @TypeOf(m).W = @splat(1e-4);
+        const difference: @TypeOf(m).W = @abs(inv.simd1 - m.simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+}
+
+test "Matrix inverse and transpose: (A^T)^-1 = (A^-1)^T" {
+    { // 2x2
+        var m = Mat2{
+            .data2 = .{
+                .{ 4, 7 },
+                .{ 2, 6 },
+            },
+        };
+
+        const inv_trans = m.inversed().cc().transpose();
+        const trans_inv = m.transposed().cc().inverse();
+
+        // const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const tolerance: @TypeOf(m).W = @splat(1e-6);
+        const difference: @TypeOf(m).W = @abs(inv_trans.simd1 - trans_inv.simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 3x3
+        var m = Mat3{
+            .data2 = .{
+                .{ 3, 0, 2 },
+                .{ 2, 0, -2 },
+                .{ 0, 1, 1 },
+            },
+        };
+
+        const inv_trans = m.inversed().cc().transpose();
+        const trans_inv = m.transposed().cc().inverse();
+
+        // const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const tolerance: @TypeOf(m).W = @splat(1e-6);
+        const difference: @TypeOf(m).W = @abs(inv_trans.simd1 - trans_inv.simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 4x4
+        var m = Mat4{
+            .data2 = .{
+                .{ 1, 2, 3, 4 },
+                .{ 0, 1, 4, 5 },
+                .{ 5, 6, 0, 7 },
+                .{ 8, 9, 10, 1 },
+            },
+        };
+
+        const inv_trans = m.inversed().cc().transpose();
+        const trans_inv = m.transposed().cc().inverse();
+
+        // const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const tolerance: @TypeOf(m).W = @splat(1e-6);
+        const difference: @TypeOf(m).W = @abs(inv_trans.simd1 - trans_inv.simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+}
 
 const std = @import("std");
 const testing = std.testing;
