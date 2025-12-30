@@ -172,9 +172,16 @@ pub fn main() !void {
         GL_.clear(GL_.COLOR_BUFFER_BIT | GL_.DEPTH_BUFFER_BIT);
 
         cube_shader.use();
-        cube_shader.setVec3("objectColor", .{ 1.0, 0.5, 0.31 });
-        cube_shader.setVec3("lightColor", .{ 1.0, 1.0, 1.0 });
-        cube_shader.setVec3("lightPos", _LIGHT_POS_.data);
+        cube_shader.setVec3("material.ambient", .{ 1.0, 0.5, 0.31 });
+        cube_shader.setVec3("material.diffuse", .{ 1.0, 0.5, 0.31 });
+        cube_shader.setVec3("material.specular", .{ 0.5, 0.5, 0.5 });
+        cube_shader.setFloat("material.shininess", 32.0);
+
+        cube_shader.setVec3("light.ambient", .{ 0.2, 0.2, 0.2 });
+        cube_shader.setVec3("light.diffuse", .{ 0.5, 0.5, 0.5 });
+        cube_shader.setVec3("light.specular", .{ 1.0, 1.0, 1.0 });
+        cube_shader.setVec3("light.position", _LIGHT_POS_.data);
+
         cube_shader.setVec3("viewPos", _CAMERA.position.data);
 
         const projection = QP_.math.perspective(
