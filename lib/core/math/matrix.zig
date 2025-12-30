@@ -59,7 +59,7 @@ pub fn Matrix(
 
     return extern union {
         simd1: @Vector(M * N, T),
-        simd2: [M]@Vector(N, T),
+        simd2: [M]V,
         data1: [M * N]T,
         data2: [M][N]T,
 
@@ -69,6 +69,7 @@ pub fn Matrix(
         const ColVec = Vector(T, M);           // Column vector type
         const Transpose = Matrix(T, N, M);     // Transposed matrix type
         const R = f32;                         // Alternate scalar return type
+        const W = @Vector(M * N, T);             // One dimension Matrix SIMD vector 
         const V = @Vector(N, T);               // SIMD row vector
         const B = @Vector(N, bool);            // Boolean SIMD vector
         const rows: u16 = M;                   // Number of rows
@@ -93,16 +94,31 @@ pub fn Matrix(
             return if (info == .int or info == .comptime_int) comptime_int else comptime_float;
         }
 
+        pub inline fn root(self: *const Self) [*]const T {
+            return &self.data1;
+        }
+
+        /// Remove const from Vector pointer
+        ///
+        /// < *Self: Mutable Matrix
+        pub inline fn cc(
+            self: *const Self,
+        ) *Self {
+            return @constCast(self);
+        }
+
         /// Default initialization
         /// Matrix data is set to undefined
         ///
         /// < Self: A new Matrix
         pub inline fn init() Self {
-            return .{ .data = undefined };
+            return .{ .data1 = undefined };
         }
 
-        pub inline fn root(self: *const Self) [*]const T {
-            return &self.data1;
+        pub inline fn clone(
+            self: *const Self,
+        ) Self {
+            return .{ .data2 = self.data2 };
         }
 
         fn scalarFrom(comptime VT: type, value: VT) T {
@@ -168,7 +184,7 @@ pub fn Matrix(
         }
 
         /// Create translation matrix (4x4 only)
-        pub fn translation(other_: Vector(T, N - 1)) Self {
+        pub inline fn translation(other_: Vector(T, N - 1)) Self {
             if (comptime !isSquare) @compileError("Translation requires square matrix");
             var result = Self.identity();
             inline for (0..M - 1) |m| {
@@ -177,12 +193,16 @@ pub fn Matrix(
             return result;
         }
 
-        pub fn translate(self: *Self, other_: Vector(T, N - 1)) *Self {
+        pub inline fn translate(self: *Self, other_: Vector(T, N - 1)) *Self {
             return self.multiplySq(Self.translation(other_));
         }
 
+        pub inline fn translated(self: *const Self, other_: Vector(T, N - 1)) Self {
+            return self.clone().cc().translate(other_).*;
+        }
+
         /// Create scaling matrix (4x4 only, or any square matrix)
-        pub fn scaling(factors: Vector(T, N - 1)) Self {
+        pub inline fn scaling(factors: Vector(T, N - 1)) Self {
             if (comptime !isSquare) @compileError("Scaling requires square matrix");
             var result = Self.identity();
             inline for (0..M - 1) |m| {
@@ -191,59 +211,15 @@ pub fn Matrix(
             return result;
         }
 
-        pub fn scale(self: *Self, factors_: Vector(T, N - 1)) *Self {
+        pub inline fn scale(self: *Self, factors_: Vector(T, N - 1)) *Self {
             return self.multiplySq(Self.scaling(factors_));
         }
 
-        /// Matrix multiplication: Self (MxN) * Other (NxP) = Result (MxP)
-        // pub inline fn mul(self: *const Self, other_: anytype) Matrix(T, M, getOtherCols(@TypeOf(other_))) {
-        //     const P = comptime getOtherCols(@TypeOf(other_));
-        //     const Other = Matrix(T, N, P);
-        //     const Result = Matrix(T, M, P);
-        //
-        //     const other: Other = if (@TypeOf(other_) == Other) other_ else Other.fromAny(other_);
-        //     var result: Result = undefined;
-        //
-        //     for (0..M) |m| {
-        //         for (0..P) |p| {
-        //             var sum: T = 0;
-        //             inline for (0..N) |n| {
-        //                 sum += self.data[m][n] * other.data[n][p];
-        //             }
-        //             result.data2[m][p] = sum;
-        //         }
-        //     }
-        //     return result;
-        // }
-
-        pub inline fn multiplySq(self: *Self, other: Self) *Self {
-            if (comptime !isSquare) @compileError("Matrix multiplication requires square matrices");
-            var result: Self = undefined;
-
-            for (0..M) |m| {
-                for (0..N) |n| {
-                    var sum: T = 0;
-                    inline for (0..N) |l| {
-                        sum += self.data2[m][l] * other.data2[l][n];
-                    }
-                    result.data2[m][n] = sum;
-                }
-            }
-            self.data2 = result.data2;
-            return self;
+        pub inline fn scaled(self: *const Self, factors_: Vector(T, N - 1)) Self {
+            return self.clone().cc().scale(factors_).*;
         }
 
-        /// Matrix-vector multiplication: Matrix (MxN) * Vector (N) = Vector (M)
-        pub inline fn multiplyVec(self: *const Self, vec: RowVec) ColVec {
-            var result: [M]T = undefined;
-            for (0..M) |m| {
-                const row_vec: V = self.simd2[m];
-                const v: V = vec.simd;
-                result[m] = @reduce(.Add, row_vec * v);
-            }
-            return ColVec.from(result);
-        }
-
+        /// Create rotation matrix
         pub inline fn rotation(
             angle_rad_: f32,
             vectors_: switch (M) {
@@ -311,7 +287,97 @@ pub fn Matrix(
             };
         }
 
-        pub inline fn transpose(self: *const Self) Transpose {
+        pub inline fn rotated(
+            self: *const Self,
+            angle_rad_: f32,
+            axis_: switch (M) {
+                2 => void,
+                3, 4 => Vector(T, 3),
+                else => @compileError("Rotated not implemented for this size"),
+            },
+        ) Self {
+            return self.clone().cc().rotate(angle_rad_, axis_).*;
+        }
+
+        /// Matrix multiplication: Self (MxN) * Other (NxP) = Result (MxP)
+        // pub inline fn mul(self: *const Self, other_: anytype) Matrix(T, M, getOtherCols(@TypeOf(other_))) {
+        //     const P = comptime getOtherCols(@TypeOf(other_));
+        //     const Other = Matrix(T, N, P);
+        //     const Result = Matrix(T, M, P);
+        //
+        //     const other: Other = if (@TypeOf(other_) == Other) other_ else Other.fromAny(other_);
+        //     var result: Result = undefined;
+        //
+        //     for (0..M) |m| {
+        //         for (0..P) |p| {
+        //             var sum: T = 0;
+        //             inline for (0..N) |n| {
+        //                 sum += self.data[m][n] * other.data[n][p];
+        //             }
+        //             result.data2[m][p] = sum;
+        //         }
+        //     }
+        //     return result;
+        // }
+
+        pub inline fn multiplySq(self: *Self, other_: Self) *Self {
+            if (comptime !isSquare) @compileError("Matrix multiplication requires square matrices");
+            var result: Self = undefined;
+
+            if (M < 4) {
+                for (0..M) |m| {
+                    for (0..N) |n| {
+                        var sum: T = 0;
+                        inline for (0..N) |l| {
+                            sum += self.data2[m][l] * other_.data2[l][n];
+                        }
+                        result.data2[m][n] = sum;
+                    }
+                }
+            } else {
+                const other = other_.transposed();
+                for (0..M) |m| {
+                    inline for (0..N) |n| {
+                        result.data2[m][n] = @reduce(.Add, self.simd2[m] * other.simd2[n]);
+                    }
+                }
+            }
+            self.data2 = result.data2;
+            return self;
+        }
+
+        pub inline fn multipliedSq(self: *const Self, other: Self) Self {
+            return self.clone().cc().multiplySq(other).*;
+        }
+
+        /// Matrix-vector multiplication: Matrix (MxN) * Vector (N) = Vector (M)
+        pub inline fn multiplyVec(self: *const Self, vec: RowVec) ColVec {
+            var result: [M]T = undefined;
+            for (0..M) |m| {
+                const row_vec: V = self.simd2[m];
+                const v: V = vec.simd;
+                result[m] = @reduce(.Add, row_vec * v);
+            }
+            return ColVec.from(result);
+        }
+
+        pub inline fn multiplyScalar(self: *Self, scalar_: T) *Self {
+            const s_vec: W = @splat(scalar_);
+            self.simd1 *= s_vec;
+            return self;
+        }
+
+        pub inline fn multipliedScalar(self: *const Self, scalar_: T) Self {
+            return self.clone().cc().multiplyScalar(scalar_).*;
+        }
+
+        pub inline fn transpose(self: *Self) *Self {
+            if (comptime !isSquare) @compileError("Matrix transpose requires square matrix");
+            self.data2 = self.transposed().data2;
+            return self;
+        }
+
+        pub inline fn transposed(self: *const Self) Transpose {
             var result: Transpose = undefined;
             inline for (0..M) |m| {
                 inline for (0..N) |n| {
@@ -320,8 +386,429 @@ pub fn Matrix(
             }
             return result;
         }
+
+        // TODO: Look up SIMD methods for 4x4 matrix inversion from GLM
+        pub inline fn inverse(self: *Self) *Self {
+            if (comptime !isSquare) @compileError("Matrix inversion requires square matrix");
+            if (M == 2) {
+                const m = self.data2;
+                const det = m[0][0] * m[1][1] - m[0][1] * m[1][0];
+                std.debug.assert(det != 0);
+                const inv_det = 1.0 / det;
+                const result: Self = .{ .data1 = .{
+                    m[1][1] * inv_det,
+                    -m[0][1] * inv_det,
+                    -m[1][0] * inv_det,
+                    m[0][0] * inv_det,
+                } };
+                self.data2 = result.data2;
+                return self;
+            } else if (M == 3) {
+                const m = self.data2;
+                const det =
+                    m[0][0] * (m[1][1] * m[2][2] - m[2][1] * m[1][2]) -
+                    m[0][1] * (m[1][0] * m[2][2] - m[2][0] * m[1][2]) +
+                    m[0][2] * (m[1][0] * m[2][1] - m[2][0] * m[1][1]);
+
+                std.debug.assert(@abs(det) > std.math.floatEps(T));
+
+                const inv_det = 1.0 / det;
+
+                const result: Self = .{
+                    .data1 = .{
+                        // Row 0
+                        (m[1][1] * m[2][2] - m[2][1] * m[1][2]) * inv_det,
+                        (m[0][2] * m[2][1] - m[0][1] * m[2][2]) * inv_det,
+                        (m[0][1] * m[1][2] - m[0][2] * m[1][1]) * inv_det,
+                        // Row 1
+                        (m[1][2] * m[2][0] - m[1][0] * m[2][2]) * inv_det,
+                        (m[0][0] * m[2][2] - m[0][2] * m[2][0]) * inv_det,
+                        (m[1][0] * m[0][2] - m[0][0] * m[1][2]) * inv_det,
+                        // Row 2
+                        (m[1][0] * m[2][1] - m[2][0] * m[1][1]) * inv_det,
+                        (m[2][0] * m[0][1] - m[0][0] * m[2][1]) * inv_det,
+                        (m[0][0] * m[1][1] - m[1][0] * m[0][1]) * inv_det,
+                    },
+                };
+                self.data2 = result.data2;
+                return self;
+            } else if (M == 4) { // Calculate inverse of a 4x4 matrix using analytical method
+                const m = self.data2;
+                // Calculate 2x2 sub-determinants (reused in cofactor calculations)
+                const coef00 = m[2][2] * m[3][3] - m[3][2] * m[2][3];
+                const coef02 = m[1][2] * m[3][3] - m[3][2] * m[1][3];
+                const coef03 = m[1][2] * m[2][3] - m[2][2] * m[1][3];
+
+                const coef04 = m[2][1] * m[3][3] - m[3][1] * m[2][3];
+                const coef06 = m[1][1] * m[3][3] - m[3][1] * m[1][3];
+                const coef07 = m[1][1] * m[2][3] - m[2][1] * m[1][3];
+
+                const coef08 = m[2][1] * m[3][2] - m[3][1] * m[2][2];
+                const coef10 = m[1][1] * m[3][2] - m[3][1] * m[1][2];
+                const coef11 = m[1][1] * m[2][2] - m[2][1] * m[1][2];
+
+                const coef12 = m[2][0] * m[3][3] - m[3][0] * m[2][3];
+                const coef14 = m[1][0] * m[3][3] - m[3][0] * m[1][3];
+                const coef15 = m[1][0] * m[2][3] - m[2][0] * m[1][3];
+
+                const coef16 = m[2][0] * m[3][2] - m[3][0] * m[2][2];
+                const coef18 = m[1][0] * m[3][2] - m[3][0] * m[1][2];
+                const coef19 = m[1][0] * m[2][2] - m[2][0] * m[1][2];
+
+                const coef20 = m[2][0] * m[3][1] - m[3][0] * m[2][1];
+                const coef22 = m[1][0] * m[3][1] - m[3][0] * m[1][1];
+                const coef23 = m[1][0] * m[2][1] - m[2][0] * m[1][1];
+
+                const fac0 = V{ coef00, coef00, coef02, coef03 };
+                const fac1 = V{ coef04, coef04, coef06, coef07 };
+                const fac2 = V{ coef08, coef08, coef10, coef11 };
+                const fac3 = V{ coef12, coef12, coef14, coef15 };
+                const fac4 = V{ coef16, coef16, coef18, coef19 };
+                const fac5 = V{ coef20, coef20, coef22, coef23 };
+
+                const vec0 = V{ m[1][0], m[0][0], m[0][0], m[0][0] };
+                const vec1 = V{ m[1][1], m[0][1], m[0][1], m[0][1] };
+                const vec2 = V{ m[1][2], m[0][2], m[0][2], m[0][2] };
+                const vec3 = V{ m[1][3], m[0][3], m[0][3], m[0][3] };
+
+                const inv0: V = vec1 * fac0 - vec2 * fac1 + vec3 * fac2;
+                const inv1: V = vec0 * fac0 - vec2 * fac3 + vec3 * fac4;
+                const inv2: V = vec0 * fac1 - vec1 * fac3 + vec3 * fac5;
+                const inv3: V = vec0 * fac2 - vec1 * fac4 + vec2 * fac5;
+
+                const sign_a = V{ 1.0, -1.0, 1.0, -1.0 };
+                const sign_b = V{ -1.0, 1.0, -1.0, 1.0 };
+
+                var result: Self = .{
+                    .simd2 = .{
+                        inv0 * sign_a,
+                        inv1 * sign_b,
+                        inv2 * sign_a,
+                        inv3 * sign_b,
+                    },
+                };
+
+                // var result: Self = .{
+                //     .data1 = .{
+                //         // Row 0
+                //         (m[1][1] * coef00 - m[1][2] * coef04 + m[1][3] * coef08),
+                //         -(m[0][1] * coef00 - m[0][2] * coef04 + m[0][3] * coef08),
+                //         (m[0][1] * coef02 - m[0][2] * coef06 + m[0][3] * coef10),
+                //         -(m[0][1] * coef03 - m[0][2] * coef07 + m[0][3] * coef11),
+                //         // Row 1
+                //         -(m[1][0] * coef00 - m[1][2] * coef12 + m[1][3] * coef16),
+                //         (m[0][0] * coef00 - m[0][2] * coef12 + m[0][3] * coef16),
+                //         -(m[0][0] * coef02 - m[0][2] * coef14 + m[0][3] * coef18),
+                //         (m[0][0] * coef03 - m[0][2] * coef15 + m[0][3] * coef19),
+                //         // Row 2
+                //         (m[1][0] * coef04 - m[1][1] * coef12 + m[1][3] * coef20),
+                //         -(m[0][0] * coef04 - m[0][1] * coef12 + m[0][3] * coef20),
+                //         (m[0][0] * coef06 - m[0][1] * coef14 + m[0][3] * coef22),
+                //         -(m[0][0] * coef07 - m[0][1] * coef15 + m[0][3] * coef23),
+                //         // Row 3
+                //         -(m[1][0] * coef08 - m[1][1] * coef16 + m[1][2] * coef20),
+                //         (m[0][0] * coef08 - m[0][1] * coef16 + m[0][2] * coef20),
+                //         -(m[0][0] * coef10 - m[0][1] * coef18 + m[0][2] * coef22),
+                //         (m[0][0] * coef11 - m[0][1] * coef19 + m[0][2] * coef23),
+                //     },
+                // };
+                // const det =
+                //     m[0][0] * result.data2[0][0] +
+                //     m[0][1] * result.data2[1][0] +
+                //     m[0][2] * result.data2[2][0] +
+                //     m[0][3] * result.data2[3][0];
+                const col0 = V{ result.data2[0][0], result.data2[1][0], result.data2[2][0], result.data2[3][0] };
+                const det = @reduce(.Add, self.simd2[0] * col0);
+                std.debug.assert(@abs(det) > std.math.floatEps(T));
+                const inv_det = 1.0 / det;
+                _ = result.multiplyScalar(inv_det);
+
+                self.data2 = result.data2;
+                return self;
+            } else {
+                @compileError("Matrix inversion not implemented for size greater than 4x4");
+            }
+        }
+
+        pub inline fn inversed(self: *const Self) Self {
+            return self.clone().cc().inverse().*;
+        }
     };
 }
+
+// TESTING:
+test "Non-sqare Matrix transpose: dimensions swap correctly" {
+    const Mat3x2 = Matrix(f32, 3, 2);
+    const Mat2x3 = Matrix(f32, 2, 3);
+
+    var m = Mat3x2{
+        .data2 = .{
+            .{ 1, 2 },
+            .{ 3, 4 },
+            .{ 5, 6 },
+        },
+    };
+
+    const n = Mat2x3{
+        .data2 = .{
+            .{ 1, 3, 5 },
+            .{ 2, 4, 6 },
+        },
+    };
+
+    const mt = m.transposed();
+    const mtt = mt.transposed();
+
+    try testing.expectEqual(@as(u16, 2), @TypeOf(mt).rows);
+    try testing.expectEqual(@as(u16, 3), @TypeOf(mt).cols);
+    try testing.expectEqual(n.data2, mt.data2);
+    try testing.expectEqual(@as(u16, 3), @TypeOf(mtt).rows);
+    try testing.expectEqual(@as(u16, 2), @TypeOf(mtt).cols);
+    try testing.expectEqual(m.data2, mtt.data2);
+}
+
+test "Square Matrix transpose" {
+    const Mat3x3 = Matrix(f32, 3, 3);
+
+    var m = Mat3x3{
+        .data2 = .{
+            .{ 1, 2, 3 },
+            .{ 4, 5, 6 },
+            .{ 7, 8, 9 },
+        },
+    };
+
+    const n = Mat3x3{
+        .data2 = .{
+            .{ 1, 4, 7 },
+            .{ 2, 5, 8 },
+            .{ 3, 6, 9 },
+        },
+    };
+
+    const mt = m.transposed();
+    try testing.expectEqual(n.data2, mt.data2);
+    _ = m.transpose();
+    try testing.expectEqual(n.data2, m.data2);
+}
+
+test "Matrix inverse: identity matrix" {
+    { // 2x2
+        var id = Mat2.identity();
+        const inv = id.inversed();
+        try testing.expectEqual(id.data2, inv.data2);
+        _ = id.inverse();
+        try testing.expectEqual(Mat2.identity().data2, id.data2);
+    }
+
+    { // 3x3
+        var id = Mat3.identity();
+        const inv = id.inversed();
+        try testing.expectEqual(id.data2, inv.data2);
+        _ = id.inverse();
+        try testing.expectEqual(Mat3.identity().data2, id.data2);
+    }
+
+    { // 4x4
+        var id = Mat4.identity();
+        const inv = id.inversed();
+        try testing.expectEqual(id.data2, inv.data2);
+        _ = id.inverse();
+        try testing.expectEqual(Mat4.identity().data2, id.data2);
+    }
+}
+
+test "Matrix inverse: A * A^-1 = I" {
+    { // 2x2
+        var m = Mat2{
+            .data2 = .{
+                .{ 4, 7 },
+                .{ 2, 6 },
+            },
+        };
+
+        const inv = m.inversed();
+        const product = m.multipliedSq(inv);
+        const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const difference: @TypeOf(m).W = @abs(product.simd1 - Mat2.identity().simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 3x3
+        var m = Mat3{
+            .data2 = .{
+                .{ 3, 0, 2 },
+                .{ 2, 0, -2 },
+                .{ 0, 1, 1 },
+            },
+        };
+
+        const inv = m.inversed();
+        const product = m.multipliedSq(inv);
+        const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const difference: @TypeOf(m).W = @abs(product.simd1 - Mat3.identity().simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 4x4
+        var m = Mat4{
+            .data2 = .{
+                .{ 1, 2, 3, 4 },
+                .{ 0, 1, 4, 5 },
+                .{ 5, 6, 0, 7 },
+                .{ 8, 9, 10, 1 },
+            },
+        };
+
+        const inv = m.inversed();
+        const product = m.multipliedSq(inv);
+        // try testing.expectEqual(Mat4.identity().data2, product.data2);
+        const tolerance: @TypeOf(m).W = @splat(1e-5);
+        const difference: @TypeOf(m).W = @abs(product.simd1 - Mat4.identity().simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+}
+
+test "Matrix inverse: A^-1 * A = I" {
+    { // 2x2
+        var m = Mat2{
+            .data2 = .{
+                .{ 4, 7 },
+                .{ 2, 6 },
+            },
+        };
+
+        const inv = m.inversed();
+        const product = inv.multipliedSq(m);
+        // const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const tolerance: @TypeOf(m).W = @splat(1e-6);
+        const difference: @TypeOf(m).W = @abs(product.simd1 - Mat2.identity().simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 3x3
+        var m = Mat3{
+            .data2 = .{
+                .{ 3, 0, 2 },
+                .{ 2, 0, -2 },
+                .{ 0, 1, 1 },
+            },
+        };
+
+        const inv = m.inversed();
+        const product = inv.multipliedSq(m);
+        const tolerance: @TypeOf(m).W = @splat(std.math.floatEps(f32));
+        const difference: @TypeOf(m).W = @abs(product.simd1 - Mat3.identity().simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+
+    { // 4x4
+        var m = Mat4{
+            .data2 = .{
+                .{ 1, 2, 3, 4 },
+                .{ 0, 1, 4, 5 },
+                .{ 5, 6, 0, 7 },
+                .{ 8, 9, 10, 1 },
+            },
+        };
+
+        const inv = m.inversed();
+        const product = inv.multipliedSq(m);
+        // try testing.expectEqual(Mat4.identity().data2, product.data2);
+        const tolerance: @TypeOf(m).W = @splat(1e-5);
+        const difference: @TypeOf(m).W = @abs(product.simd1 - Mat4.identity().simd1);
+        try testing.expect(@reduce(.And, difference <= tolerance));
+    }
+}
+
+// test "Matrix inverse: (A^-1)^-1 = A" {
+//     const Mat3x3 = Matrix(f32, 3, 3);
+//
+//     var m = Mat3x3{
+//         .data2 = .{
+//             .{ 2, 1, 1 },
+//             .{ 1, 2, 1 },
+//             .{ 1, 1, 2 },
+//         },
+//     };
+//
+//     const inv = m.inverse();
+//     const inv_inv = inv.inverse();
+//
+//     for (0..3) |i| {
+//         for (0..3) |j| {
+//             try testing.expectApproxEqAbs(
+//                 m.data2[i][j],
+//                 inv_inv.data2[i][j],
+//                 1e-5,
+//             );
+//         }
+//     }
+// }
+//
+// test "Matrix inverse and transpose: (A^T)^-1 = (A^-1)^T" {
+//     const Mat3x3 = Matrix(f32, 3, 3);
+//
+//     var m = Mat3x3{
+//         .data2 = .{
+//             .{ 1, 0, 2 },
+//             .{ 2, 1, 0 },
+//             .{ 0, 1, 1 },
+//         },
+//     };
+//
+//     const mt_inv = m.transpose().inverse();
+//     const inv_mt = m.inverse().transpose();
+//
+//     for (0..3) |i| {
+//         for (0..3) |j| {
+//             try testing.expectApproxEqAbs(
+//                 mt_inv.data2[i][j],
+//                 inv_mt.data2[i][j],
+//                 1e-5,
+//             );
+//         }
+//     }
+// }
+//
+// test "Matrix inverse: known 2x2 result" {
+//     const Mat2x2 = Matrix(f32, 2, 2);
+//
+//     var m = Mat2x2{
+//         .data2 = .{
+//             .{ 1, 2 },
+//             .{ 3, 4 },
+//         },
+//     };
+//
+//     const inv = m.inverse();
+//
+//     // Determinant = -2, so inverse should be:
+//     // [-2, 1]
+//     // [1.5, -0.5]
+//     try testing.expectApproxEqAbs(@as(f32, -2.0), inv.data2[0][0], 1e-5);
+//     try testing.expectApproxEqAbs(@as(f32, 1.0), inv.data2[0][1], 1e-5);
+//     try testing.expectApproxEqAbs(@as(f32, 1.5), inv.data2[1][0], 1e-5);
+//     try testing.expectApproxEqAbs(@as(f32, -0.5), inv.data2[1][1], 1e-5);
+// }
+//
+// test "Matrix transpose: 1x1 matrix" {
+//     const Mat1x1 = Matrix(f32, 1, 1);
+//
+//     var m = Mat1x1{ .data2 = .{.{42.0}} };
+//     const mt = m.transpose();
+//
+//     try testing.expectApproxEqAbs(@as(f32, 42.0), mt.data2[0][0], 1e-6);
+// }
+//
+// test "Matrix inverse: 1x1 matrix" {
+//     const Mat1x1 = Matrix(f32, 1, 1);
+//
+//     var m = Mat1x1{ .data2 = .{.{4.0}} };
+//     const inv = m.inverse();
+//
+//     try testing.expectApproxEqAbs(@as(f32, 0.25), inv.data2[0][0], 1e-6);
+// }
 
 const std = @import("std");
 const testing = std.testing;
