@@ -97,6 +97,19 @@ pub fn main() !void {
         // top face
     }; // zig fmt: on
 
+    const cube_positions = [_]Vec3{
+        Vec3{ .data = .{ 0.0, 0.0, 0.0 } },
+        Vec3{ .data = .{ 2.0, 5.0, -15.0 } },
+        Vec3{ .data = .{ -1.5, -2.2, -2.5 } },
+        Vec3{ .data = .{ -3.8, -2.0, -12.3 } },
+        Vec3{ .data = .{ 2.4, -0.4, -3.5 } },
+        Vec3{ .data = .{ -1.7, 3.0, -7.5 } },
+        Vec3{ .data = .{ 1.3, -2.0, -2.5 } },
+        Vec3{ .data = .{ 1.5, 2.0, -2.5 } },
+        Vec3{ .data = .{ 1.5, 0.2, -1.5 } },
+        Vec3{ .data = .{ -1.3, 1.0, -1.5 } },
+    };
+
     try Glfw_.init();
     defer Glfw_.terminate();
 
@@ -167,7 +180,7 @@ pub fn main() !void {
 
     _CAMERA = Camera.from(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null, false);
 
-    // --- RENDER LOOP
+    // ~~~ RENDER LOOP ~~~
     while (!window.shouldClose()) {
         const currentFrame: f32 = @floatCast(Glfw_.getTime());
         _DELTA_TIME = currentFrame - _LAST_FRAME;
@@ -182,10 +195,13 @@ pub fn main() !void {
         cube_shader.use();
         cube_shader.setFloat("material.shininess", 64.0);
 
+        cube_shader.setVec3("light.position", _LIGHT_POS_.data);
         cube_shader.setVec3("light.ambient", .{ 0.2, 0.2, 0.2 });
         cube_shader.setVec3("light.diffuse", .{ 0.5, 0.5, 0.5 });
         cube_shader.setVec3("light.specular", .{ 1.0, 1.0, 1.0 });
-        cube_shader.setVec3("light.position", _LIGHT_POS_.data);
+        cube_shader.setFloat("light.constant", 1.0);
+        cube_shader.setFloat("light.linear", 0.09);
+        cube_shader.setFloat("light.quadratic", 0.032);
 
         cube_shader.setVec3("viewPos", _CAMERA.position.data);
 
@@ -200,19 +216,25 @@ pub fn main() !void {
         cube_shader.setMat4("projection", projection.root());
         cube_shader.setMat4("view", view.root());
 
-        const model = Mat4.identity();
-        cube_shader.setMat4("model", model.root());
-
-        const normal_matrix = model.inversed().cc().transpose().*;
-        cube_shader.setMat4("normalMatrix", normal_matrix.root());
-
         GL_.activeTexture(GL_.TEXTURE0);
         GL_.bindTexture(GL_.TEXTURE_2D, diffuse_map.ID);
         GL_.activeTexture(GL_.TEXTURE1);
         GL_.bindTexture(GL_.TEXTURE_2D, specular_map.ID);
 
         GL_.bindVertexArray(cube_VAO);
-        GL_.drawArrays(GL_.TRIANGLES, 0, 36);
+
+        for (0..10) |i| {
+            const angle: f32 = 20.0 * @as(f32, @floatFromInt(i));
+            const model = Mat4.identity().cc()
+                .translate(cube_positions[i])
+                .rotate(angle, (Vec3{ .data = .{ 1.0, 0.3, 0.5 } }).normalized());
+            cube_shader.setMat4("model", model.root());
+
+            const normal_matrix = model.inversed().cc().transpose().*;
+            cube_shader.setMat4("normalMatrix", normal_matrix.root());
+
+            GL_.drawArrays(GL_.TRIANGLES, 0, 36);
+        }
 
         light_shader.use();
         light_shader.setMat4("projection", projection.root());
