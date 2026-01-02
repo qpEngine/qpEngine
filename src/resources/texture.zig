@@ -52,6 +52,8 @@ var flip_vertically: bool = true;
 
 pub const Texture = struct {
     ID: gl.Uint,
+    type: []const u8,
+    path: []const u8,
 
     pub fn init(path: [:0]const u8, hasAlpha: bool) !Texture {
         var texture: Texture = undefined;

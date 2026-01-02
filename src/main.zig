@@ -110,6 +110,13 @@ pub fn main() !void {
         Vec3{ .data = .{ -1.3, 1.0, -1.5 } },
     };
 
+    const point_light_positions = [_]Vec3{
+        Vec3{ .data = .{ 0.7, 0.2, 2.0 } },
+        Vec3{ .data = .{ 2.3, -3.3, -4.0 } },
+        Vec3{ .data = .{ -4.0, 2.0, -12.0 } },
+        Vec3{ .data = .{ 0.0, 0.0, -3.0 } },
+    };
+
     try Glfw_.init();
     defer Glfw_.terminate();
 
@@ -177,6 +184,7 @@ pub fn main() !void {
     cube_shader.use();
     cube_shader.setInt("material.diffuse", 0);
     cube_shader.setInt("material.specular", 1);
+    cube_shader.setFloat("material.shininess", 64.0);
 
     _CAMERA = Camera.from(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null, false);
 
@@ -193,17 +201,42 @@ pub fn main() !void {
         GL_.clear(GL_.COLOR_BUFFER_BIT | GL_.DEPTH_BUFFER_BIT);
 
         cube_shader.use();
-        cube_shader.setFloat("material.shininess", 64.0);
-
-        cube_shader.setVec3("light.position", _LIGHT_POS_.data);
-        cube_shader.setVec3("light.ambient", .{ 0.2, 0.2, 0.2 });
-        cube_shader.setVec3("light.diffuse", .{ 0.5, 0.5, 0.5 });
-        cube_shader.setVec3("light.specular", .{ 1.0, 1.0, 1.0 });
-        cube_shader.setFloat("light.constant", 1.0);
-        cube_shader.setFloat("light.linear", 0.09);
-        cube_shader.setFloat("light.quadratic", 0.032);
-
         cube_shader.setVec3("viewPos", _CAMERA.position.data);
+
+        // set directional light
+        cube_shader.setVec3("dirLight.direction", .{ -0.2, -1.0, -0.3 });
+        cube_shader.setVec3("dirLight.ambient", .{ 0.05, 0.05, 0.05 });
+        cube_shader.setVec3("dirLight.diffuse", .{ 0.4, 0.4, 0.4 });
+        cube_shader.setVec3("dirLight.specular", .{ 0.5, 0.5, 0.5 });
+
+        // set point lights
+        var buf: [64]u8 = undefined;
+        for (0..4) |i| {
+            const p = "pointLights";
+            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].position\x00", .{ p, i })).ptr, point_light_positions[i].data);
+
+            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].ambient\x00", .{ p, i })).ptr, .{ 0.05, 0.05, 0.05 });
+            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].diffuse\x00", .{ p, i })).ptr, .{ 0.8, 0.8, 0.8 });
+            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].specular\x00", .{ p, i })).ptr, .{ 1.0, 1.0, 1.0 });
+
+            cube_shader.setFloat((try bufPrint(&buf, "{s}[{d}].constant\x00", .{ p, i })).ptr, 1.0);
+            cube_shader.setFloat((try bufPrint(&buf, "{s}[{d}].linear\x00", .{ p, i })).ptr, 0.09);
+            cube_shader.setFloat((try bufPrint(&buf, "{s}[{d}].quadratic\x00", .{ p, i })).ptr, 0.032);
+        }
+
+        // set spot light
+        cube_shader.setVec3("spotLight.position", _CAMERA.position.data);
+        cube_shader.setVec3("spotLight.direction", _CAMERA.front.data);
+        cube_shader.setFloat("spotLight.cutoff", @cos(QP_.math.radians(12.5)));
+        cube_shader.setFloat("spotLight.outerCutoff", @cos(QP_.math.radians(15.0)));
+
+        cube_shader.setVec3("spotLight.ambient", .{ 0.0, 0.0, 0.0 });
+        cube_shader.setVec3("spotLight.diffuse", .{ 1.0, 1.0, 1.0 });
+        cube_shader.setVec3("spotLight.specular", .{ 1.0, 1.0, 1.0 });
+
+        cube_shader.setFloat("spotLight.constant", 1.0);
+        cube_shader.setFloat("spotLight.linear", 0.09);
+        cube_shader.setFloat("spotLight.quadratic", 0.032);
 
         const projection = QP_.math.perspective(
             f32,
@@ -240,12 +273,15 @@ pub fn main() !void {
         light_shader.setMat4("projection", projection.root());
         light_shader.setMat4("view", view.root());
 
-        var light_model = Mat4.identity().cc()
-            .translate(_LIGHT_POS_)
-            .scale(Vec3.from(0.2)).*;
-        light_shader.setMat4("model", light_model.root());
         GL_.bindVertexArray(light_VAO);
-        GL_.drawArrays(GL_.TRIANGLES, 0, 36);
+
+        for (0..4) |i| {
+            var light_model = Mat4.identity().cc()
+                .translate(point_light_positions[i])
+                .scale(Vec3.from(0.2)).*;
+            light_shader.setMat4("model", light_model.root());
+            GL_.drawArrays(GL_.TRIANGLES, 0, 36);
+        }
 
         window.swapBuffers();
         Glfw_.pollEvents();
@@ -324,6 +360,8 @@ const Stbi_ = @import("zstbi");
 const Opengl_ = @import("zopengl");
 const GL_ = Opengl_.bindings;
 const Tlib_ = @import("templib.zig");
+
+const bufPrint = Std_.fmt.bufPrint;
 
 const Shader = @import("resources/shader.zig").Shader;
 const Texture = @import("resources/texture.zig").Texture;
