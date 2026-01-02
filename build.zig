@@ -65,6 +65,12 @@ pub fn build(b: *std.Build) void {
     });
     qp_lib.addImport("zmath", zmath.module("root"));
 
+    const zmesh = b.dependency("zmesh", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    qp_lib.addImport("zmesh", zmesh.module("root"));
+
     // PCRE2 Regex Library
     const pcrez_lib = b.dependency("pcrez", .{
         .target = target,
@@ -102,6 +108,7 @@ pub fn build(b: *std.Build) void {
             .name = "qpEngine",
             .root_module = exe_mod,
         });
+        exe.linkLibrary(zmesh.artifact("zmesh"));
 
         if (target.result.os.tag != .emscripten) {
             exe.linkLibrary(zglfw.artifact("glfw"));

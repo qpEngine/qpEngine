@@ -47,6 +47,7 @@
 //pub const util = @import("util.zig");
 pub const math = @import("core/math.zig");
 pub const re = @import("pcrez");
+pub const mesh = @import("zmesh");
 
 const testing = @import("std").testing;
 test "qp lib" {

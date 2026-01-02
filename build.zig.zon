@@ -37,6 +37,11 @@
             .hash = "zgui-0.6.0-dev--L6sZATybQCK2aBUnZ_5VKga-60UiZZ0v4e0T9doN4iu",
         },
 
+        .zmesh = .{
+            .url = "git+https://github.com/zig-gamedev/zmesh#da79e85180294d0633a6fbf119199eb52e818138",
+            .hash = "zmesh-0.11.0-dev-oO3A5k-RCgAxtVOk3K7tIQKv7xq1066dH07iPWedfyU1",
+        },
+
         .zmath = .{
             .url = "git+https://github.com/zig-gamedev/zmath#3a5955b2b72cd081563fbb084eff05bffd1e3fbb",
             .hash = "zmath-0.11.0-dev-wjwivdMsAwD-xaLj76YHUq3t9JDH-X16xuMTmnDzqbu2",
