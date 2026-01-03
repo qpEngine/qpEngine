@@ -48,7 +48,6 @@ var wrap_s: gl.Int = gl.REPEAT;
 var wrap_t: gl.Int = gl.REPEAT;
 var min_filter: gl.Int = gl.LINEAR_MIPMAP_LINEAR;
 var mag_filter: gl.Int = gl.LINEAR;
-var flip_vertically: bool = true;
 
 pub const Texture = struct {
     ID: gl.Uint,
@@ -65,9 +64,8 @@ pub const Texture = struct {
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, min_filter);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, mag_filter);
 
-        stbi.setFlipVerticallyOnLoad(flip_vertically);
         var image: stbi.Image = stbi.Image.loadFromFile(path, 0) catch |err| {
-            std.debug.print("Failed to load texture\n{any}\n", .{err});
+            std.debug.print("Failed to load texture\n{s}\n{any}\n", .{ path, err });
             return err;
         };
         gl.texImage2D(
@@ -92,10 +90,6 @@ pub const Texture = struct {
         wrap_t = t;
         min_filter = min;
         mag_filter = mag;
-    }
-
-    pub fn setFlipVertically(flip: bool) void {
-        flip_vertically = flip;
     }
 };
 

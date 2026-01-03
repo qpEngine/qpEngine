@@ -45,78 +45,6 @@
 //
 
 pub fn main() !void {
-    const vertices = [_]f32{ // zig fmt: off
-        // positions from top left CCW, coords from top right CW
-        // pos             // coords
-        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0,
-         0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 0.0,
-         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0,
-         0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  1.0, 1.0,
-        -0.5,  0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 1.0,
-        -0.5, -0.5, -0.5,  0.0,  0.0, -1.0,  0.0, 0.0,
-        // front face
-
-        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,   0.0, 0.0,
-         0.5, -0.5,  0.5,  0.0,  0.0, 1.0,   1.0, 0.0,
-         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,   1.0, 1.0,
-         0.5,  0.5,  0.5,  0.0,  0.0, 1.0,   1.0, 1.0,
-        -0.5,  0.5,  0.5,  0.0,  0.0, 1.0,   0.0, 1.0,
-        -0.5, -0.5,  0.5,  0.0,  0.0, 1.0,   0.0, 0.0,
-        // back face
-
-        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0,
-        -0.5,  0.5, -0.5, -1.0,  0.0,  0.0,  1.0, 1.0,
-        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0,
-        -0.5, -0.5, -0.5, -1.0,  0.0,  0.0,  0.0, 1.0,
-        -0.5, -0.5,  0.5, -1.0,  0.0,  0.0,  0.0, 0.0,
-        -0.5,  0.5,  0.5, -1.0,  0.0,  0.0,  1.0, 0.0,
-        // left face
-
-         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0,
-         0.5,  0.5, -0.5,  1.0,  0.0,  0.0,  1.0, 1.0,
-         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0,
-         0.5, -0.5, -0.5,  1.0,  0.0,  0.0,  0.0, 1.0,
-         0.5, -0.5,  0.5,  1.0,  0.0,  0.0,  0.0, 0.0,
-         0.5,  0.5,  0.5,  1.0,  0.0,  0.0,  1.0, 0.0,
-         // right face
-
-        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0,
-         0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  1.0, 1.0,
-         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0,
-         0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  1.0, 0.0,
-        -0.5, -0.5,  0.5,  0.0, -1.0,  0.0,  0.0, 0.0,
-        -0.5, -0.5, -0.5,  0.0, -1.0,  0.0,  0.0, 1.0,
-        // bottom face
-
-        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0,
-         0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  1.0, 1.0,
-         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0,
-         0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  1.0, 0.0,
-        -0.5,  0.5,  0.5,  0.0,  1.0,  0.0,  0.0, 0.0,
-        -0.5,  0.5, -0.5,  0.0,  1.0,  0.0,  0.0, 1.0
-        // top face
-    }; // zig fmt: on
-
-    const cube_positions = [_]Vec3{
-        Vec3{ .data = .{ 0.0, 0.0, 0.0 } },
-        Vec3{ .data = .{ 2.0, 5.0, -15.0 } },
-        Vec3{ .data = .{ -1.5, -2.2, -2.5 } },
-        Vec3{ .data = .{ -3.8, -2.0, -12.3 } },
-        Vec3{ .data = .{ 2.4, -0.4, -3.5 } },
-        Vec3{ .data = .{ -1.7, 3.0, -7.5 } },
-        Vec3{ .data = .{ 1.3, -2.0, -2.5 } },
-        Vec3{ .data = .{ 1.5, 2.0, -2.5 } },
-        Vec3{ .data = .{ 1.5, 0.2, -1.5 } },
-        Vec3{ .data = .{ -1.3, 1.0, -1.5 } },
-    };
-
-    const point_light_positions = [_]Vec3{
-        Vec3{ .data = .{ 0.7, 0.2, 2.0 } },
-        Vec3{ .data = .{ 2.3, -3.3, -4.0 } },
-        Vec3{ .data = .{ -4.0, 2.0, -12.0 } },
-        Vec3{ .data = .{ 0.0, 0.0, -3.0 } },
-    };
-
     try Glfw_.init();
     defer Glfw_.terminate();
 
@@ -139,52 +67,24 @@ pub fn main() !void {
     try Glfw_.setInputMode(window, Glfw_.InputMode.cursor, Glfw_.Cursor.Mode.disabled);
     _ = Glfw_.setCursorPosCallback(window, mouseCallback);
     _ = Glfw_.setScrollCallback(window, scrollCallback);
+    // Stbi_.setFlipVerticallyOnLoad(true);
+    Stbi_.setFlipVerticallyOnLoad(false);
     GL_.enable(GL_.DEPTH_TEST);
 
     // build and compile our shader programs
-    var cube_shader = try Shader.init(
-        "src/shaders/chapter1/1.colors.vert",
-        "src/shaders/chapter1/1.colors.frag",
+    var our_shader = try Shader.init(
+        "src/shaders/chapter1/1.model.vert",
+        "src/shaders/chapter1/1.model.frag",
         Std_.heap.page_allocator,
     );
-    defer cube_shader.deinit();
+    defer our_shader.deinit();
 
-    var light_shader = try Shader.init(
-        "src/shaders/chapter1/1.light.vert",
-        "src/shaders/chapter1/1.light.frag",
-        Std_.heap.page_allocator,
-    );
-    defer light_shader.deinit();
-
-    // Configure cube's VAO and VBO
-    var cube_VAO: GL_.Uint = Tlib_.createVAO();
-    defer GL_.deleteVertexArrays(1, &cube_VAO);
-
-    var cube_VBO: GL_.Uint = Tlib_.createVBO(&vertices);
-    defer GL_.deleteBuffers(1, &cube_VBO);
-
-    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), null);
-    GL_.enableVertexAttribArray(0);
-    GL_.vertexAttribPointer(1, 3, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(3 * @sizeOf(f32))));
-    GL_.enableVertexAttribArray(1);
-    GL_.vertexAttribPointer(2, 2, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), @as(?*anyopaque, @ptrFromInt(6 * @sizeOf(f32))));
-    GL_.enableVertexAttribArray(2);
-
-    var light_VAO: GL_.Uint = Tlib_.createVAO();
-    defer GL_.deleteVertexArrays(1, &light_VAO);
-
-    GL_.bindBuffer(GL_.ARRAY_BUFFER, cube_VBO);
-    GL_.vertexAttribPointer(0, 3, GL_.FLOAT, GL_.FALSE, 8 * @sizeOf(f32), null);
-    GL_.enableVertexAttribArray(0);
-
-    // GL_.polygonMode(GL_.FRONT_AND_BACK, GL_.FILL);
-
-    const diffuse_map = try Texture.init("misc/textures/container2.png", true);
-    const specular_map = try Texture.init("misc/textures/container2_specular.png", true);
-    cube_shader.use();
-    cube_shader.setInt("material.diffuse", 0);
-    cube_shader.setInt("material.specular", 1);
-    cube_shader.setFloat("material.shininess", 64.0);
+    const model_path = "misc/models/backpack/scene.gltf";
+    var buffer: [256]u8 = undefined;
+    const full_model_path = try Std_.fs.cwd().realpath(model_path, &buffer);
+    buffer[full_model_path.len] = 0;
+    var our_model = try Model.init(buffer[0..full_model_path.len :0], false);
+    defer our_model.deinit();
 
     _CAMERA = Camera.from(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null, false);
 
@@ -200,88 +100,23 @@ pub fn main() !void {
         GL_.clearColor(0.1, 0.1, 0.1, 1.0); // dark gray
         GL_.clear(GL_.COLOR_BUFFER_BIT | GL_.DEPTH_BUFFER_BIT);
 
-        cube_shader.use();
-        cube_shader.setVec3("viewPos", _CAMERA.position.data);
-
-        // set directional light
-        cube_shader.setVec3("dirLight.direction", .{ -0.2, -1.0, -0.3 });
-        cube_shader.setVec3("dirLight.ambient", .{ 0.05, 0.05, 0.05 });
-        cube_shader.setVec3("dirLight.diffuse", .{ 0.4, 0.4, 0.4 });
-        cube_shader.setVec3("dirLight.specular", .{ 0.5, 0.5, 0.5 });
-
-        // set point lights
-        var buf: [64]u8 = undefined;
-        for (0..4) |i| {
-            const p = "pointLights";
-            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].position\x00", .{ p, i })).ptr, point_light_positions[i].data);
-
-            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].ambient\x00", .{ p, i })).ptr, .{ 0.05, 0.05, 0.05 });
-            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].diffuse\x00", .{ p, i })).ptr, .{ 0.8, 0.8, 0.8 });
-            cube_shader.setVec3((try bufPrint(&buf, "{s}[{d}].specular\x00", .{ p, i })).ptr, .{ 1.0, 1.0, 1.0 });
-
-            cube_shader.setFloat((try bufPrint(&buf, "{s}[{d}].constant\x00", .{ p, i })).ptr, 1.0);
-            cube_shader.setFloat((try bufPrint(&buf, "{s}[{d}].linear\x00", .{ p, i })).ptr, 0.09);
-            cube_shader.setFloat((try bufPrint(&buf, "{s}[{d}].quadratic\x00", .{ p, i })).ptr, 0.032);
-        }
-
-        // set spot light
-        cube_shader.setVec3("spotLight.position", _CAMERA.position.data);
-        cube_shader.setVec3("spotLight.direction", _CAMERA.front.data);
-        cube_shader.setFloat("spotLight.cutoff", @cos(QP_.math.radians(12.5)));
-        cube_shader.setFloat("spotLight.outerCutoff", @cos(QP_.math.radians(15.0)));
-
-        cube_shader.setVec3("spotLight.ambient", .{ 0.0, 0.0, 0.0 });
-        cube_shader.setVec3("spotLight.diffuse", .{ 1.0, 1.0, 1.0 });
-        cube_shader.setVec3("spotLight.specular", .{ 1.0, 1.0, 1.0 });
-
-        cube_shader.setFloat("spotLight.constant", 1.0);
-        cube_shader.setFloat("spotLight.linear", 0.09);
-        cube_shader.setFloat("spotLight.quadratic", 0.032);
-
-        const projection = QP_.math.perspective(
+        our_shader.use();
+        var projection: Mat4 = QP_.math.perspective(
             f32,
-            QP_.math.radians(_CAMERA.zoom),
+            _CAMERA.zoom,
             @as(f32, _WIN_WIDTH_) / @as(f32, _WIN_HEIGHT_),
             0.1,
             100.0,
         );
-        const view = _CAMERA.getViewMatrix();
-        cube_shader.setMat4("projection", projection.root());
-        cube_shader.setMat4("view", view.root());
+        var view: Mat4 = _CAMERA.getViewMatrix();
+        our_shader.setMat4("projection", projection.root());
+        our_shader.setMat4("view", view.root());
 
-        GL_.activeTexture(GL_.TEXTURE0);
-        GL_.bindTexture(GL_.TEXTURE_2D, diffuse_map.ID);
-        GL_.activeTexture(GL_.TEXTURE1);
-        GL_.bindTexture(GL_.TEXTURE_2D, specular_map.ID);
-
-        GL_.bindVertexArray(cube_VAO);
-
-        for (0..10) |i| {
-            const angle: f32 = 20.0 * @as(f32, @floatFromInt(i));
-            const model = Mat4.identity().cc()
-                .translate(cube_positions[i])
-                .rotate(angle, (Vec3{ .data = .{ 1.0, 0.3, 0.5 } }).normalized());
-            cube_shader.setMat4("model", model.root());
-
-            const normal_matrix = model.inversed().cc().transpose().*;
-            cube_shader.setMat4("normalMatrix", normal_matrix.root());
-
-            GL_.drawArrays(GL_.TRIANGLES, 0, 36);
-        }
-
-        light_shader.use();
-        light_shader.setMat4("projection", projection.root());
-        light_shader.setMat4("view", view.root());
-
-        GL_.bindVertexArray(light_VAO);
-
-        for (0..4) |i| {
-            var light_model = Mat4.identity().cc()
-                .translate(point_light_positions[i])
-                .scale(Vec3.from(0.2)).*;
-            light_shader.setMat4("model", light_model.root());
-            GL_.drawArrays(GL_.TRIANGLES, 0, 36);
-        }
+        const model = Mat4.identity().cc()
+            .translate(Vec3.from(.{ 0.0, 0.0, 0.0 }))
+            .scale(Vec3.from(.{ 1.0, 1.0, 1.0 }));
+        our_shader.setMat4("model", model.root());
+        our_model.draw(&our_shader);
 
         window.swapBuffers();
         Glfw_.pollEvents();
@@ -366,6 +201,8 @@ const bufPrint = Std_.fmt.bufPrint;
 const Shader = @import("resources/shader.zig").Shader;
 const Texture = @import("resources/texture.zig").Texture;
 const Camera = @import("resources/camera.zig").Camera;
+const Model = @import("resources/model.zig").Model;
+const Mesh = @import("resources/mesh.zig").Mesh;
 
 const Vector = QP_.math.Vector;
 const Matrix = QP_.math.Matrix;
