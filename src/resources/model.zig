@@ -50,26 +50,39 @@ pub const Model = struct {
         if (data.scene) |scene| {
             for (0..scene.nodes_count) |i| {
                 const node = scene.nodes.?[i];
-                self.processNode(node, data);
+                self.processNode(node, data, Mat4.identity());
             }
         }
     }
 
-    fn processNode(self: *Model, node_: *Mesh_.io.zcgltf.Node, data_: *Mesh_.io.zcgltf.Data) void {
+    fn processNode(
+        self: *Model,
+        node_: *Mesh_.io.zcgltf.Node,
+        data_: *Mesh_.io.zcgltf.Data,
+        parent_transform_: Mat4,
+    ) void {
         const allocator = Std_.heap.page_allocator;
 
+        const local_transform = Mat4{ .data1 = node_.transformLocal() };
+        const world_transform = parent_transform_.multipliedSq(local_transform);
+
         if (node_.mesh) |mesh| {
-            const processedMesh = self.processMesh(mesh, data_);
+            const processedMesh = self.processMesh(mesh, data_, world_transform);
             _ = self.meshes.append(allocator, processedMesh) catch unreachable;
         }
 
         for (0..node_.children_count) |i| {
             const child = node_.children.?[i];
-            self.processNode(child, data_);
+            self.processNode(child, data_, world_transform);
         }
     }
 
-    fn processMesh(self: *Model, mesh_: *Mesh_.io.zcgltf.Mesh, data_: *Mesh_.io.zcgltf.Data) Mesh {
+    fn processMesh(
+        self: *Model,
+        mesh_: *Mesh_.io.zcgltf.Mesh,
+        data_: *Mesh_.io.zcgltf.Data,
+        transform_: Mat4,
+    ) Mesh {
         const allocator = Std_.heap.page_allocator;
 
         var vertices: AList(Vertex) = .empty;
@@ -107,6 +120,8 @@ pub const Model = struct {
                 }
             }
 
+            const normal_matrix = transform_.inversed().cc().transpose().*;
+
             // Now build vertices with all attributes
             for (0..vertex_count) |k| {
                 var vertex: Vertex = .{
@@ -120,16 +135,19 @@ pub const Model = struct {
                 };
 
                 if (position_accessor) |acc| {
-                    vertex.position = readFromAccessor([3]f32, acc, k);
+                    const local = readFromAccessor([3]f32, acc, k);
+                    vertex.position = transform_.multiplyVec3(local);
                 }
                 if (normal_accessor) |acc| {
-                    vertex.normal = readFromAccessor([3]f32, acc, k);
+                    const local = readFromAccessor([3]f32, acc, k);
+                    vertex.normal = normal_matrix.multiplyVec3(local);
                 }
                 if (texcoord_accessor) |acc| {
                     vertex.tex_coords = readFromAccessor([2]f32, acc, k);
                 }
                 if (tangent_accessor) |acc| {
-                    vertex.tangent = readFromAccessor([3]f32, acc, k);
+                    const local = readFromAccessor([3]f32, acc, k);
+                    vertex.tangent = transform_.multiplyVec3(local);
                 }
 
                 _ = vertices.append(allocator, vertex) catch unreachable;
@@ -227,3 +245,4 @@ const Shader = @import("shader.zig").Shader;
 const AList = Std_.ArrayList;
 const Vec3 = QP_.math.Vector(f32, 3);
 const Vec2 = QP_.math.Vector(f32, 2);
+const Mat4 = QP_.math.Matrix(f32, 4, 4);
