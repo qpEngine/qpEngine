@@ -87,6 +87,18 @@ pub fn main() !void {
 
     _CAMERA = Camera.from(Vec3.from(.{ 0.0, 0.0, 3.0 }), null, null, null, false);
 
+    our_shader.use();
+    our_shader.setFloat("shininess", 64.0);
+
+    our_shader.setVec3("pointLight.position", _LIGHT_POS_.data);
+    our_shader.setVec3("pointLight.ambient", .{ 0.2, 0.2, 0.2 });
+    our_shader.setVec3("pointLight.diffuse", .{ 0.8, 0.8, 0.8 });
+    our_shader.setVec3("pointLight.specular", .{ 1.0, 1.0, 1.0 });
+
+    our_shader.setFloat("pointLight.constant", 1.0);
+    our_shader.setFloat("pointLight.linear", 0.09);
+    our_shader.setFloat("pointLight.quadratic", 0.032);
+
     // ~~~ RENDER LOOP ~~~
     while (!window.shouldClose()) {
         const currentFrame: f32 = @floatCast(Glfw_.getTime());
@@ -100,6 +112,7 @@ pub fn main() !void {
         GL_.clear(GL_.COLOR_BUFFER_BIT | GL_.DEPTH_BUFFER_BIT);
 
         our_shader.use();
+        our_shader.setVec3("viewPos", _CAMERA.position.data);
         var projection: Mat4 = QP_.math.perspective(
             f32,
             _CAMERA.zoom,
