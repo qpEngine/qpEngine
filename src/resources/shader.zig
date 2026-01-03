@@ -117,7 +117,7 @@ pub const Shader = struct {
         return .{ .ID = shaderProgram };
     }
 
-    pub fn use(self: *Shader) void {
+    pub fn use(self: *const Shader) void {
         gl.useProgram(self.ID);
     }
 
