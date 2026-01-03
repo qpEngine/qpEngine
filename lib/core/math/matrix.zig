@@ -353,12 +353,23 @@ pub fn Matrix(
         /// Matrix-vector multiplication: Matrix (MxN) * Vector (N) = Vector (M)
         pub inline fn multiplyVec(self: *const Self, vec: RowVec) ColVec {
             var result: [M]T = undefined;
+            const v: V = vec.simd;
             for (0..M) |m| {
                 const row_vec: V = self.simd2[m];
-                const v: V = vec.simd;
                 result[m] = @reduce(.Add, row_vec * v);
             }
             return ColVec.from(result);
+        }
+
+        pub inline fn multiplyVec3(self: *const Self, vec: Vector(T, 3)) Vector(T, 3) {
+            if (comptime !(M == 4 and isSquare)) @compileError("Matrix-vector multiplication requires 4x4 matrix");
+            var result: [M]T = undefined;
+            const v: V = .{ vec.data[0], vec.data[1], vec.data[2], 1.0 };
+            inline for (0..M) |m| {
+                const row_vec: V = self.simd2[m];
+                result[m] = @reduce(.Add, row_vec * v);
+            }
+            return Vector(T, 3).from(result);
         }
 
         pub inline fn multiplyScalar(self: *Self, scalar_: T) *Self {
