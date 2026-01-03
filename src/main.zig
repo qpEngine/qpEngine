@@ -55,7 +55,7 @@ pub fn main() !void {
     Glfw_.windowHint(.context_version_minor, _GL_MINOR_);
     Glfw_.windowHint(.opengl_profile, .opengl_core_profile);
     if (Builtin_.os.tag == .macos) {
-        Glfw_.windowHint(.opengl_forward_compat, true); // necessary for macOS
+        Glfw_.windowHint(.opengl_forward_compat, true);
     }
 
     const window = try Glfw_.Window.create(_WIN_WIDTH_, _WIN_HEIGHT_, "qpEngine", null);
@@ -67,7 +67,6 @@ pub fn main() !void {
     try Glfw_.setInputMode(window, Glfw_.InputMode.cursor, Glfw_.Cursor.Mode.disabled);
     _ = Glfw_.setCursorPosCallback(window, mouseCallback);
     _ = Glfw_.setScrollCallback(window, scrollCallback);
-    // Stbi_.setFlipVerticallyOnLoad(true);
     Stbi_.setFlipVerticallyOnLoad(false);
     GL_.enable(GL_.DEPTH_TEST);
 
@@ -114,7 +113,7 @@ pub fn main() !void {
 
         const model = Mat4.identity().cc()
             .translate(Vec3.from(.{ 0.0, 0.0, 0.0 }))
-            .scale(Vec3.from(.{ 1.0, 1.0, 1.0 }));
+            .scale(Vec3.from(.{ 0.01, 0.01, 0.01 }));
         our_shader.setMat4("model", model.root());
         our_model.draw(&our_shader);
 
@@ -172,8 +171,8 @@ fn framebufferSizeCallback(_: *Glfw_.Window, width: c_int, height: c_int) callco
 }
 
 var _CAMERA = Camera.init();
-var _DELTA_TIME: f32 = 0.0; // time between current frame and last frame
-var _LAST_FRAME: f32 = 0.0; // time of last frame
+var _DELTA_TIME: f32 = 0.0;
+var _LAST_FRAME: f32 = 0.0;
 
 var _LAST_X: f32 = @as(f32, _WIN_WIDTH_) / 2.0;
 var _LAST_Y: f32 = @as(f32, _WIN_HEIGHT_) / 2.0;

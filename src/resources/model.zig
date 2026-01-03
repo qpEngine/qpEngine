@@ -1,3 +1,49 @@
+//
+//
+//
+//
+//
+//    I. qpEngine
+//
+//                                                         ,,
+//                      `7MM"""YMM                         db
+//                        MM    `7
+//      ,dW"Yvd`7MMpdMAo. MM   d    `7MMpMMMb.  .P"Ybmmm `7MM  `7MMpMMMb.  .gP"Ya
+//     ,W'   MM  MM   `Wb MMmmMM      MM    MM :MI  I8     MM    MM    MM ,M'   Yb
+//     8M    MM  MM    M8 MM   Y  ,   MM    MM  WmmmP"     MM    MM    MM 8M""""""
+//     YA.   MM  MM   ,AP MM     ,M   MM    MM 8M          MM    MM    MM YM.    ,
+//      'MbmdMM  MMbmmd'.JMMmmmmMMM .JMML  JMML.YMMMMMb  .JMML..JMML  JMML.`Mbmmd'
+//           MM  MM                            6'     dP
+//         .JMMLJMML.                          YbmmmdY'
+//
+//
+//
+//    II. Copyright (c) 2025-present Rocco Ruscitti
+//
+//    III. License
+//    Permission is hereby granted, free of charge, to any person obtaining a copy
+//    of this software and associated documentation files (the "Software"), to deal
+//    in the Software without restriction, including without limitation the rights
+//    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+//    copies of the Software, and to permit persons to whom the Software is
+//    furnished to do so, subject to the following conditions:
+//
+//    The above copyright notice and this permission notice shall be included in all
+//    copies or substantial portions of the Software.
+//
+//    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+//    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+//    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+//    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+//    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+//    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+//    SOFTWARE.
+//
+//
+//
+//
+//
+
 pub const Model = struct {
     textures_loaded: AList(Texture),
     meshes: AList(Mesh),
@@ -63,7 +109,8 @@ pub const Model = struct {
     ) void {
         const allocator = Std_.heap.page_allocator;
 
-        const local_transform = Mat4{ .data1 = node_.transformLocal() };
+        var local_transform = Mat4{ .data1 = node_.transformLocal() };
+        _ = local_transform.transpose();
         const world_transform = parent_transform_.multipliedSq(local_transform);
 
         if (node_.mesh) |mesh| {
@@ -86,18 +133,13 @@ pub const Model = struct {
         const allocator = Std_.heap.page_allocator;
 
         var vertices: AList(Vertex) = .empty;
-        // defer vertices.deinit(allocator);
-
         var indices: AList(GL_.Uint) = .empty;
-        // defer indices.deinit(allocator);
-
         var textures: AList(Texture) = .empty;
-        // defer textures.deinit(allocator);
 
         for (0..mesh_.primitives_count) |i| {
             const primitive = mesh_.primitives[i];
 
-            // First, determine vertex count from POSITION attribute
+            // Process vertices
             var vertex_count: usize = 0;
             var position_accessor: ?*Mesh_.io.zcgltf.Accessor = null;
             var normal_accessor: ?*Mesh_.io.zcgltf.Accessor = null;
@@ -122,7 +164,6 @@ pub const Model = struct {
 
             const normal_matrix = transform_.inversed().cc().transpose().*;
 
-            // Now build vertices with all attributes
             for (0..vertex_count) |k| {
                 var vertex: Vertex = .{
                     .position = Vec3{ .data = .{ 0, 0, 0 } },
@@ -168,7 +209,7 @@ pub const Model = struct {
                 }
             }
 
-            // Process material and textures here
+            // Process material and textures
             if (primitive.material) |material| {
                 const diffuse_texture = material.pbr_metallic_roughness.base_color_texture;
                 if (diffuse_texture.texture) |tex| {
@@ -201,7 +242,6 @@ pub const Model = struct {
         const temp = Std_.fmt.bufPrint(&buffer, "{s}/{s}\x00", .{ self.directory, texture_path }) catch unreachable;
         texture_path = buffer[0 .. temp.len - 1 :0];
 
-        // Check if texture was loaded before
         for (self.textures_loaded.items) |loaded_texture| {
             if (Std_.mem.eql(u8, loaded_texture.path, texture_path)) {
                 return loaded_texture;
@@ -215,7 +255,7 @@ pub const Model = struct {
         return new_texture;
     }
 };
-// [3]f32
+
 fn readFromAccessor(T: type, accessor: *Mesh_.io.zcgltf.Accessor, index: usize) switch (T) {
     [2]f32 => Vec2,
     [3]f32 => Vec3,

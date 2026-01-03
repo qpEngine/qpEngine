@@ -146,8 +146,8 @@ pub const Shader = struct {
     }
 
     pub fn setMat4(self: *Shader, name: [*c]const u8, mat: [*]const f32) void {
-        // gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.FALSE, mat);
-        gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.TRUE, mat);
+        // gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.FALSE, mat); // column-major
+        gl.uniformMatrix4fv(gl.getUniformLocation(self.ID, name), 1, gl.TRUE, mat); // row-major
     }
 };
 
